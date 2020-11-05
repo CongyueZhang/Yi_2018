@@ -83,6 +83,8 @@ private:
 public:
 	/// 从private移过来的
 	std::vector<half_edge_data> half_edges;
+	// Invariant: this always point to a boundary edge going *from* the vertex
+	std::vector<uint32_t> vertex_to_half_edge;
 
 	/// Convert a list of indices to half-edge connectivity
 	half_edge_connectivity(size_t num_vertices, const std::vector<uint32_t>& indices);
@@ -178,6 +180,8 @@ public:
 	// Return the index of removed half edges (which will all be invalid following this operation).
 	std::array<uint32_t, 6> collapse_edge(uint32_t he);
 
+	void collapse_edge_test(uint32_t he);
+
 	/// Call \p f on all triangles (note that they are in the right orientation)
 	// Note: f shall take a std::array<uint32_t, 3> as parameter (w/o const&)
 	template<typename F>
@@ -203,8 +207,7 @@ private:
 
 	//half_edges本来在的地方
 
-	// Invariant: this always point to a boundary edge going *from* the vertex
-	std::vector<uint32_t> vertex_to_half_edge;
+	// vertex_to_half_edge本来在的地方
 
 	// Store invalid half edges in a heap; this allow to find them fast for re-use
 	std::vector<uint32_t> free_half_edges;

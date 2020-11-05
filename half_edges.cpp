@@ -3,6 +3,8 @@
 #include <algorithm>
 #include "debugbreak.h"
 
+#include <iostream>
+
 half_edge_connectivity::half_edge_connectivity(size_t num_vertices, const std::vector<uint32_t>& indices)
 {
 	reset(num_vertices, indices);
@@ -454,6 +456,79 @@ std::array<uint32_t, 6> half_edge_connectivity::collapse_edge(uint32_t he)
 	}
 	if (h.index != start_h) vertex_to_half_edge[to_keep] = h.index;
 	return to_delete;
+}
+
+/// 与上面collapse函数的区别： 没有将delete的halfedge推入free
+/// ---------------------------------------------------------
+void half_edge_connectivity::collapse_edge_test(uint32_t he)
+{
+	// Change vertex of all half-edges from 'to_remove' to 'to_keep'
+	half_edge h = handle(he);
+	// to remove是he射出的，to_keep是射入的
+	// 用.next.next而不用.opposite是为了防止在boundary
+	const uint32_t to_keep = h.vertex(), to_remove = h.next().next().vertex();   
+	h = handle(vertex_to_half_edge[to_remove]);		// 从to_remove这个vertex射出的一个halfedge
+	const uint32_t loop_h = h.index;	// 起始的index
+
+	// 将所有射入 to_remove 的halfedge 的 vertex 改成 to_keep
+	do
+	{
+		h = h.next().next();						// 射入to_remove的halfedge
+		half_edges[h.index].vertex = to_keep;		// 将该halfedge的vertex改成to_keep的
+		h = h.opposite();							// 移到下一个从to_remove这个vertex射出的halfedge
+	} while (h.is_valid() && h.index != loop_h);	// 遍历每一个射入to_remove的halfedge
+	h = handle(he);
+
+	// Edges to delete, adjust the vertex correspondence
+	const std::array<uint32_t, 6> to_delete =
+	{
+		h.index,
+		h.opposite().index,
+		h.next().next().index,
+		h.next().next().opposite().index,
+		h.opposite().next().index,
+		h.opposite().next().opposite().index
+	};
+
+	half_edge i = h.next().next().opposite();
+	half_edge j = h.opposite().next().opposite();
+
+	// Adjust the 4 triangles adjacent to 'he'
+	// 更新被删了边的两个三角形中，halfedge的next顺序关系
+	if (i.is_valid())
+	{
+		const uint32_t tri[3] = { i.next().index, i.next().next().index, i.opposite().next().next().index };
+		half_edges[tri[1]].next = tri[2];
+		half_edges[tri[2]].next = tri[0];
+	}
+	else
+	{
+		i = h.next();
+		half_edges[i.opposite().index].opposite = uint32_t(-1);
+		dealloc_half_edge(i.index);
+	}
+	if (j.is_valid())
+	{
+		const uint32_t tri[3] = { j.next().index, j.next().next().index, j.opposite().next().index };
+		half_edges[tri[1]].next = tri[2];
+		half_edges[tri[2]].next = tri[0];
+	}
+	else
+	{
+		j = h.opposite().next().next();
+		if (j.is_valid())
+		{
+			half_edges[j.opposite().index].opposite = uint32_t(-1);
+			dealloc_half_edge(j.index);
+		}
+	}
+
+	// Deallocate edges
+	for (uint32_t t = 0; t < 6; t++)
+	{
+		if (to_delete[t] != uint32_t(-1))		
+			half_edges[to_delete[t]] = half_edge_data();
+	}
 }
 
 //返回的是free_half_edges中存的最大的index (若有)，或half_edges最后一个Index

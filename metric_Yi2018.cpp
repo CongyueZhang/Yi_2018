@@ -86,8 +86,7 @@ void metric_Yi2018::setup(const mesh& object, half_edge_connectivity& connec)
 /// --------------------------------------------------------
 bool metric_Yi2018::delaunay_valid(uint32_t h_index) const
 {
-	const half_edge he = connectivity->handle(h_index);
-	auto [angle1, angle2] = opp_angle(*obj, *connectivity, he.index);
+	auto [angle1, angle2] = opp_angle(*obj, *connectivity, h_index);
 	if (angle1 + angle2 > M_PI)
 	{
 		return false;
@@ -196,32 +195,38 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	// 将即将被collapse的Halfedges的data保存下来
 	// 新想法：除了delete掉的halfedge，射入to_remove的halfedge也变了
 
+	// 在collapse前把原data存下来
+	//------------------------------------------
 	std::vector<half_edge_data> half_edges_data;						
 	std::vector<uint32_t> half_edges_index;
-	std::array<half_edge_data, 3> deleted_halfedges_data;
 
-	half_edge he = connectivity->handle(h_index).opposite();				//移掉的是出射点
+	half_edge he = connectivity->handle(h_index);							// he: v -> v'   v是to_remove
 	uint32_t start = uint32_t(-1);
-	while (he.is_valid() && he.index != start)								//遍历所有射入v的halfedge，有几个halfedge就有几个vertex与v相连
+	while (he.is_valid() && he.index != start)								// 遍历v的one ring
 	{
 		if (start == uint32_t(-1)) 
 			start = he.index;
 
-		half_edges_data.push_back(connectivity->half_edges[he.index]);		//将所有入射v的halfedge的data存起来
+		half_edges_data.push_back(connectivity->half_edges[he.index]);		// 将所有入射v的halfedge的data存起来
 		half_edges_index.push_back(he.index);
 
-		he = he.next().opposite();
-	}
-	he = connectivity->handle(h_index);										//移掉的是出射点
-	
-	// 把将要delete的【出射】delete的halfedge的data保存起来
-	deleted_halfedges_data[0] = connectivity->half_edges[he.index];
-	deleted_halfedges_data[1] = connectivity->half_edges[he.next().next().opposite().index];
-	deleted_halfedges_data[2] = connectivity->half_edges[he.opposite().next().index];
+		he = he.next();
 
-	std::array<uint32_t, 6> deleted_halfedges = connectivity->collapse_edge(h_index);
+		half_edges_data.push_back(connectivity->half_edges[he.index]);		// 将所有入射v的halfedge的data存起来
+		half_edges_index.push_back(he.index);
+
+		he = he.next();
+
+		half_edges_data.push_back(connectivity->half_edges[he.index]);		// 将所有入射v的halfedge的data存起来
+		half_edges_index.push_back(he.index);
+
+		he = he.opposite();
+	}
+
+	connectivity->collapse_edge_test(h_index);
 	
 	// 检测collapse后是否满足条件
+	// ------------------------
 	start = uint32_t(-1);
 	bool validity = true;
 	for (uint32_t index: half_edges_index)
@@ -230,9 +235,8 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 		
 		/// 检测这个he是否是delaunay的
 		he = connectivity->handle(index);
-		
-		/// todo: 会有edge的重复遍历(因为每个edge有两个halfedge)   看下怎么优化减少重复
-		if (!(delaunay_valid(he.index) && delaunay_valid(he.next().index) && delaunay_valid(he.next().next().index)))		//遍历这个halfedge所在三角形中的每一边
+		/// todo: 会有edge的重复遍历(因为每个edge有两个halfedge)   看下怎么优化减少重复   (可以通过visited_edges？)
+		if (!(delaunay_valid(he.index)))	
 		{
 			validity = false;
 			break;
@@ -240,33 +244,22 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	}
 	
 	/// 用保存的data复原
-	for (int i =0; i<half_edges_data.size(); ++i)
+	/// -----------------------------------------
+	for (int i = 0; i<half_edges_data.size(); ++i)
 	{
 		connectivity->half_edges[half_edges_index[i]] = half_edges_data[i];
 	}
-	connectivity->half_edges[deleted_halfedges[0]] = deleted_halfedges_data[0];
-	connectivity->half_edges[deleted_halfedges[3]] = deleted_halfedges_data[1];
-	connectivity->half_edges[deleted_halfedges[4]] = deleted_halfedges_data[2];
 
-	// ①  暂时搁置，因为不知道怎么写V和F的对应关系
+	// TODO:  v' 的 vertex_to_half_edge 也要改回去
 	/*
-	thread_local std::vector<uint32_t> V, F;
-	thread_local mesh m;
-	uint32_t start = uint32_t(-1);
-	while (he.is_valid() && he.index != start)			//遍历所有从v出射的halfedge，有几个halfedge就有几个vertex与v相连
-	{
-		if (start == uint32_t(-1)) start = he.index;
-		
-		//对这个he的操作
-		m.vertices.push_back(obj->vertices[he.vertex()]);
-		m.vertices.push_back(obj->vertices[he.next().vertex()]);
-		m.vertices.push_back(obj->vertices[he.next().next().vertex()]);
-		m.triangles.push_back();
+	* 将collapse_edge_test中所有可能会改变vertex_to_half_edge的代码都删除了
+	he = connectivity->handle(h_index);
+	connectivity->vertex_to_half_edge[he.opposite().vertex()] = he.index;
 
-
-		he = he.next().next().opposite();
-	}
+	connectivity->vertex_to_half_edge[he.vertex()] = he.opposite().index;
 	*/
+
+
 	return validity;
 }
 

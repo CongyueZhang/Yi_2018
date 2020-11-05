@@ -320,12 +320,19 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 		if (candidatesNLD.empty())
 		{
 			size_t num_collap = 0;
-			if (stats.num_vertices != target_num_vertices)
+			while (!candidatesREM.empty() && stats.num_vertices != target_num_vertices)
 			{
 				++num_collap;
 				const detail::candidate_operation c = candidatesREM.pop();
 				perform_collapse(c);
 			}
+			
+			if (stats.num_vertices != target_num_vertices)
+			{
+				S.resize(1, -1);
+				return { NULL, S };
+			}
+
 			if (S.size() % 2 == 0)
 			{
 				S.push_back(0);
