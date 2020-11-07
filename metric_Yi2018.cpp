@@ -266,18 +266,17 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 /// todo: 不知道这个qem是否能达到要求
 double metric_Yi2018::cost_collapse(uint32_t half_edge, uint32_t to_keep, uint32_t to_remove) const
 {
-	/*
 	if (lock_boundaries)
 	{
 		const std::pair<uint32_t, uint32_t> v = connectivity->edge_vertices(half_edge);
 		if (connectivity->is_boundary_vertex(v.first) || connectivity->is_boundary_vertex(v.second))
 			return std::numeric_limits<double>::infinity();
 	}	
-	*/
+
 
 	const Eigen::Vector3d fallback = obj->vertices[to_keep];
 	Eigen::Matrix4d q_toKeep, q_toRemove;
-	const std::pair<Eigen::Vector3d, double> result = qem_merge(vertex_quadric((const mesh&)obj, (const half_edge_connectivity&)connectivity, to_keep), vertex_quadric((const mesh&)obj,(const half_edge_connectivity&)connectivity, to_remove), fallback);
+	const std::pair<Eigen::Vector3d, double> result = qem_merge(vertex_quadric((const mesh&)*obj, (const half_edge_connectivity&)*connectivity, to_keep), vertex_quadric((const mesh&)*obj,(const half_edge_connectivity&)*connectivity, to_remove), fallback);
 	return result.second;
 }
 

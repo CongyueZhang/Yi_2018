@@ -71,13 +71,9 @@ std::pair<Eigen::Vector3d, double> qem_merge(const Eigen::Matrix4d& Q1, const Ei
 {
 	const Eigen::Matrix4d Q = Q1 + Q2;
 	Eigen::Matrix3d A = Eigen::Matrix3d::Zero();
-	bool invertible = true;
+	bool invertible = false;
 	Eigen::Matrix3d(Q.block(0, 0, 3, 3)).computeInverseWithCheck(A, invertible);			//computeInverseWithCheck: 计算逆矩阵，将结果存到A
-	Eigen::Vector3d target;
-	if (invertible)
-		target = -A * Q.block(0, 3, 3, 1);
-	else
-		target = fallback;
+	Eigen::Vector3d target = fallback;
 	const Eigen::Vector4d hg_tgt = { target[0], target[1], target[2], 1.0 };
 	const double qem = hg_tgt.transpose() * Q * hg_tgt;
 	return { target, qem };

@@ -379,8 +379,8 @@ std::array<uint32_t, 6> half_edge_connectivity::collapse_edge(uint32_t he)
 	{
 		h = h.next().next();						// 射入to_remove的halfedge
 		half_edges[h.index].vertex = to_keep;		// 将该halfedge的vertex改成to_keep的
-		h = h.opposite();							// 移到下一个从to_remove这个vertex射出的halfedge
-	} while (h.is_valid() && h.index != loop_h);	// 遍历每一个从to_remove射出的halfedge
+		h = h.opposite();							
+	} while (h.is_valid() && h.index != loop_h);	
 	h = handle(he);
 
 	// Edges to delete, adjust the vertex correspondence

@@ -259,15 +259,16 @@ void min_priority_queue<T, IndexFn, CompareFn>::push_up(size_t e)
 template<typename T, typename IndexFn, typename CompareFn>
 bool min_priority_queue<T, IndexFn, CompareFn>::_delete(size_t index)
 {
-	const size_t el = index < indices.size() ? indices[index] : size_t(-1);
+	const size_t el = index < indices.size() ? indices[index] : size_t(-1);				// el是对应的element的index
 	if (el == size_t(-1)) return false;
 
-	if (index == elements.size() - 1)
+	indices[index] = size_t(-1);
+
+	if (el == elements.size() - 1)
 		elements.pop_back();
 	else
 	{
 		// 先改index （不然pop之后，就找不到原来 elements.size() - 1 对应的 halfedge 的 index了
-		indices[index] = size_t(-1);
 		indices[index_of(elements[elements.size() - 1])] = el;
 
 		std::swap(elements[el], elements[elements.size() - 1]);

@@ -6,6 +6,7 @@
 
 #include <execution>
 #include<math.h>
+#include <iostream>
 
 void remove_standalone_vertices(mesh& obj, const half_edge_connectivity& connectivity)
 {
@@ -172,7 +173,21 @@ void reduction::process_he(const half_edge& he)
 
 void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从pirority queue中移除掉删掉了的halfedges，并更新周围的neighbour
 {
-	half_edge he = connectivity.handle(c.index);								/// he是从要移除的点出射的
+	/// 临时debug加的
+	/// ----------------------------------------
+	// Plot the mesh
+	/*
+	mesh Mesh;
+	Mesh.vertices = obj.vertices;
+	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+	remove_standalone_vertices(Mesh, connectivity);
+
+	Mesh.save("test.obj");	
+	*/
+
+	/// ------------------------------------------
+
+	half_edge he = connectivity.handle(c.index);						/// he是从要移除的点出射的
 
 	std::vector<uint32_t> he2update;
 
@@ -187,14 +202,14 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 
 	stats.on_operation(Collapse);
 
-	for (uint32_t h : connectivity.collapse_edge(c.index))							/// connectivity.collapse_edge()返回的是 index of removed half edges
+	for (uint32_t h : connectivity.collapse_edge(c.index))				/// connectivity.collapse_edge()返回的是 index of removed half edges
 	{
-		candidatesREM._delete(h);				/// 从priority queue中移除这些删掉了的边
+		candidatesREM._delete(h);										/// 从priority queue中移除这些删掉了的边
 		candidatesNLD._delete(h);
 	}
 	for (uint32_t h : he2update)
 	{
-		if (connectivity.handle(h).is_valid())										/// 更新未删掉的Halfedge
+		if (connectivity.handle(h).is_valid())							/// 更新未删掉的Halfedge
 			process_he(connectivity.handle(h));
 	}
 }
@@ -258,6 +273,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 	bool _skip = false;
 	mesh Mesh;
 	X = X.round();
+
 	for (size_t i = 1; i <= X.size(); ++i)
 	{
 		_skip = false;
@@ -320,7 +336,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 		if (candidatesNLD.empty())
 		{
 			size_t num_collap = 0;
-			while (!candidatesREM.empty() && stats.num_vertices != target_num_vertices)
+			while (!candidatesREM.empty() && stats.num_vertices != target_num_vertices)			// TODO：这里好像有问题，好像是跳过了==？
 			{
 				++num_collap;
 				const detail::candidate_operation c = candidatesREM.pop();

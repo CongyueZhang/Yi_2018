@@ -80,7 +80,7 @@ struct command_line
 
 	// General options
 	unsigned int num_vertices = 0;
-	size_t Np = 100, n_iter = 100, Nc = 5;
+	size_t Np = 40, n_iter = 10, Nc = 5;
 	double tao = pow(10, -4);
 	double F = 0.5, Cr = 0.9;
 

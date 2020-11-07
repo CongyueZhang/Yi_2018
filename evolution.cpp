@@ -49,16 +49,16 @@ mesh evolution_stream(mesh& obj, const size_t& target_num_vertices, const size_t
 			std::uniform_real_distribution<> dis(0, 1);
 			if (i % 2 == 0)		/// i is odd	(因为数组原因，从0开始的，所以这里判断为even，对应的i是odd)
 			{
-				Xk1(j,i) = dis(gen) * Ymax;		/// 随机产生[0,1]均匀分布的浮点数  TODO: 验证一下
+				Xk1(j,i) = dis(gen) * double(Ymax);		/// 随机产生[0,1]均匀分布的浮点数  TODO: 验证一下
 			}
 			else                /// otherwise
 			{
-				Xk1(j,i) = dis(gen) * Xmax;
+				Xk1(j,i) = dis(gen) * double(Xmax);
 
 			}
 		}
 
-		auto [Mesh_i, S_i] = _reduction.reduce_stream(Xk.row(j));
+		auto [Mesh_i, S_i] = _reduction.reduce_stream(Xk1.row(j));
 
 		/// Todo: 保证进行完一次reduce_stream后，obj还和原来一样
 		if (S_i[1] == -1)
