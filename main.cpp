@@ -17,7 +17,6 @@ inline bool ci_equal(const char* a, const char* b)
 	return !*a && !*b;
 }
 
-
 using metric_create_f = std::unique_ptr<reduction_metric>();
 
 template<typename T>

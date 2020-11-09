@@ -207,17 +207,17 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 		if (start == uint32_t(-1)) 
 			start = he.index;
 
-		half_edges_data.push_back(connectivity->half_edges[he.index]);		// 将所有入射v的halfedge的data存起来
+		half_edges_data.push_back(connectivity->half_edges[he.index]);		
 		half_edges_index.push_back(he.index);
 
 		he = he.next();
 
-		half_edges_data.push_back(connectivity->half_edges[he.index]);		// 将所有入射v的halfedge的data存起来
+		half_edges_data.push_back(connectivity->half_edges[he.index]);		
 		half_edges_index.push_back(he.index);
 
 		he = he.next();
 
-		half_edges_data.push_back(connectivity->half_edges[he.index]);		// 将所有入射v的halfedge的data存起来
+		half_edges_data.push_back(connectivity->half_edges[he.index]);		
 		half_edges_index.push_back(he.index);
 
 		he = he.opposite();
@@ -227,20 +227,24 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	
 	// 检测collapse后是否满足条件
 	// ------------------------
-	start = uint32_t(-1);
 	bool validity = true;
+	std::unordered_set<uint32_t> visited_edges;
 	for (uint32_t index: half_edges_index)
 	{
 		if (!connectivity->half_edges[index].is_valid())	continue;		//说明该边已经被删除
 		
-		/// 检测这个he是否是delaunay的
-		he = connectivity->handle(index);
-		/// todo: 会有edge的重复遍历(因为每个edge有两个halfedge)   看下怎么优化减少重复   (可以通过visited_edges？)
-		if (!(delaunay_valid(he.index)))	
+		if (visited_edges.count(index) == 0)
 		{
-			validity = false;
-			break;
+			/// 检测这个he是否是delaunay的
+			/// todo: 会有edge的重复遍历(因为每个edge有两个halfedge)   看下怎么优化减少重复   (可以通过visited_edges？)
+			if (!(delaunay_valid(index)))
+			{
+				validity = false;
+				break;
+			}
 		}
+		visited_edges.insert(index);
+		visited_edges.insert(connectivity->handle(index).opposite().index);
 	}
 	
 	/// 用保存的data复原
@@ -249,16 +253,6 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	{
 		connectivity->half_edges[half_edges_index[i]] = half_edges_data[i];
 	}
-
-	// TODO:  v' 的 vertex_to_half_edge 也要改回去
-	/*
-	* 将collapse_edge_test中所有可能会改变vertex_to_half_edge的代码都删除了
-	he = connectivity->handle(h_index);
-	connectivity->vertex_to_half_edge[he.opposite().vertex()] = he.index;
-
-	connectivity->vertex_to_half_edge[he.vertex()] = he.opposite().index;
-	*/
-
 
 	return validity;
 }

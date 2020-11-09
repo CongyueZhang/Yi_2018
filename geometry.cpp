@@ -3,6 +3,8 @@
 #include "debugbreak.h"
 #include "ranges.h"
 
+#include <Eigen/Dense>
+
 #pragma warning(push)
 #pragma warning(disable: 4127)
 #include <Spectra/MatOp/SparseSymShiftSolve.h>
@@ -282,7 +284,7 @@ void get_edge_2_ring(const half_edge_connectivity& connectivity, const std::vect
 ///------------------------------------------------------------
 double getAngle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2)
 {
-	return abs(acos(v1.dot(v2) / (v1.norm() * v2.norm())));			// 改动：加了abs函数
+	return std::abs(std::acos(v1.dot(v2) / (v1.norm() * v2.norm())));			// 改动：加了abs函数
 }
 
 /// 找edge的对角
@@ -292,22 +294,8 @@ std::pair<double, double> opp_angle(const mesh& obj, const half_edge_connectivit
 	double angle1, angle2;									// angle1和angle2是radians
 	const half_edge h = connectivity.handle(h_index);
 	const half_edge g = h.opposite();
-	Eigen::Vector3d x_h = obj.vertices[h.vertex()];
-	Eigen::Vector3d x_g = obj.vertices[g.vertex()];
-	Eigen::Vector3d x_h_next = obj.vertices[h.next().vertex()];
-	Eigen::Vector3d x_g_next = obj.vertices[g.next().vertex()];
-	Eigen::Vector3d x_h_next2 = obj.vertices[h.next().next().vertex()];
-	Eigen::Vector3d x_g_next2 = obj.vertices[g.next().next().vertex()];
 
-	Eigen::Vector3d x1 = x_h - x_h_next;
-	Eigen::Vector3d x2 = x_h_next2 - x_h_next;
-	Eigen::Vector3d x3 = x_g - x_g_next;
-	Eigen::Vector3d x4 =x_g_next2 - x_g_next;
-
-	angle1 = getAngle(x1, x2);
-	angle2 = getAngle(x3, x4);
-
-	// angle1 = getAngle(obj.vertices[h.vertex()] - obj.vertices[h.next().vertex()], obj.vertices[h.next().vertex()] - obj.vertices[h.next().next().vertex()]);
-	// angle2 = getAngle(obj.vertices[g.vertex()] - obj.vertices[g.next().vertex()], obj.vertices[g.next().vertex()] - obj.vertices[g.next().next().vertex()]);
+	angle1 = getAngle(obj.vertices[h.vertex()] - obj.vertices[h.next().vertex()], obj.vertices[h.next().next().vertex()] - obj.vertices[h.next().vertex()]);
+	angle2 = getAngle(obj.vertices[g.vertex()] - obj.vertices[g.next().vertex()], obj.vertices[g.next().next().vertex()] - obj.vertices[g.next().vertex()]);
 	return { angle1, angle2 };
 }

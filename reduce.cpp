@@ -173,32 +173,22 @@ void reduction::process_he(const half_edge& he)
 
 void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从pirority queue中移除掉删掉了的halfedges，并更新周围的neighbour
 {
-	/// 临时debug加的
-	/// ----------------------------------------
-	// Plot the mesh
-	/*
-	mesh Mesh;
-	Mesh.vertices = obj.vertices;
-	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
-	remove_standalone_vertices(Mesh, connectivity);
-
-	Mesh.save("test.obj");	
-	*/
-
-	/// ------------------------------------------
-
 	half_edge he = connectivity.handle(c.index);						/// he是从要移除的点出射的
+	uint32_t to_keep = he.vertex();
 
+	/*
+	* 不需要提前存入2update的了
+	* 因为原to_remove的one ring包含在了collapse后的to_keep的one ring中
 	std::vector<uint32_t> he2update;
-
 	/// 将需要更新的halfedge的坐标存起来
 	/// 需要更新的是以 to_remove 为顶点的所有三角形的所有halfedge
-	/// 若其中有non_delaunay的边，则需要从NLD queue中移除，并更新num_nonDelaunay （因为collapse后，这些halfedge要么被删掉，要么变成delaunay了）
 	uint32_t to_remove = he.opposite().vertex();
 	traverse_1_ring_edge(to_remove,										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
 		[&](half_edge h) {
 				he2update.push_back(h.index);										
-		});
+		});	
+	*/
+
 
 	stats.on_operation(Collapse);
 
@@ -207,11 +197,33 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		candidatesREM._delete(h);										/// 从priority queue中移除这些删掉了的边
 		candidatesNLD._delete(h);
 	}
+
+	traverse_1_ring_edge(to_keep,										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+		[&](half_edge h) {
+			process_he(h);
+		});
+
+	/*
 	for (uint32_t h : he2update)
 	{
 		if (connectivity.handle(h).is_valid())							/// 更新未删掉的Halfedge
 			process_he(connectivity.handle(h));
-	}
+	}	
+	*/
+
+
+/// 临时debug加的
+/// ----------------------------------------
+// Plot the mesh
+	/*
+	mesh Mesh;
+	Mesh.vertices = obj.vertices;
+	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+	remove_standalone_vertices(Mesh, connectivity);
+
+	Mesh.save("cylindrical_oneCollapse.obj");	
+	*/
+
 }
 
 /// 先从priority queue中删掉已有的Halfedges
@@ -274,13 +286,13 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 	mesh Mesh;
 	X = X.round();
 
-	for (size_t i = 1; i <= X.size(); ++i)
+	for (size_t i = 0; i <= X.size(); ++i)
 	{
 		_skip = false;
 		size_t j = 0;
-		if (i % 2 == 1)								/// odd, E = Es
+		if (i % 2 == 0)								/// odd, E = Es  (因为X坐标从0开始，所以i为even时，对应的是odd)
 		{
-			for (; j < X(i); ++j)
+			for (; j < X[i]; ++j)
 			{
 				// 问题： 做第一次operation前是否要判断？？
 				// 解决方案：改成了先判断再操作
@@ -294,7 +306,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 				{
 					// set S(x) = Sdummy and return 空集
 					S.resize(1, -1);
-					return { NULL, S };
+					return { Mesh, S };			// dummy
 				}
 
 				const detail::candidate_operation c = candidatesNLD.pop();
@@ -304,9 +316,9 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 			}
 		}
 
-		if (i % 2 == 0)		// even, E = Ec
+		if (i % 2 != 0)							/// even, E = Ec
 		{
-			for (; j < X(i); ++j)
+			for (; j < X[i]; ++j)
 			{
 				if (candidatesNLD.empty())
 				{
@@ -318,7 +330,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 					_skip = true;
 					// set S(x) = Sdummy and return 空集
 					S.resize(1, -1);
-					return { NULL, S };
+					return { Mesh, S };			// dummy
 				}
 
 				const detail::candidate_operation c = candidatesREM.pop();
@@ -346,7 +358,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 			if (stats.num_vertices != target_num_vertices)
 			{
 				S.resize(1, -1);
-				return { NULL, S };
+				return { Mesh, S };				// dummy
 			}
 
 			if (S.size() % 2 == 0)
@@ -361,9 +373,18 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 			connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 			remove_standalone_vertices(Mesh, connectivity);
 			obj.vertices.resize(ini_num_vertices);
+
+			/// 临时debug加的
+			mesh Mesh1;
+			Mesh1.vertices = obj.vertices;
+			connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+			remove_standalone_vertices(Mesh1, connectivity);
+
+			Mesh1.save("cylindrical_test.obj");
+
 			return { Mesh, S };
 		}
 	}
 	S.resize(1, -1);
-	return { NULL, S };
+	return { Mesh, S };
 }
