@@ -113,6 +113,8 @@ private:
 	size_t sequence_d = 0;		// operation sequence的长度
 	min_priority_queue<detail::candidate_operation, std::function<uint32_t(const detail::candidate_operation& c)>> candidatesNLD;	//T是candidate_operation，IndexFn是uint32_t；将candidate_index函数给index_of
 	min_priority_queue<detail::candidate_operation, std::function<uint32_t(const detail::candidate_operation& c)>> candidatesREM;
+	std::unordered_set<uint32_t> visited_edges;
+	std::unordered_set<uint32_t> visited_vertices;
 	void add_collapse(const half_edge& he);
 	void add_one_collapse(const half_edge& he);
 	void add_split(const half_edge& he);
@@ -123,7 +125,7 @@ private:
 	void perform_split(const detail::candidate_operation& c);
 
 	template<typename F>
-	void traverse_1_ring_edge(uint32_t v, F f);
+	void traverse_k_ring_edge(unsigned int k, uint32_t v, F f);
 	template<typename F>
 	void traverse_1_ring(uint32_t v, F f);
 };

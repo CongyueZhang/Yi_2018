@@ -27,14 +27,17 @@ void remove_standalone_vertices(mesh& obj, const half_edge_connectivity& connect
 
 /// 从traversal.h里copy来的
 template<typename F>
-void reduction::traverse_1_ring_edge(uint32_t v, F f)
+void reduction::traverse_k_ring_edge(unsigned int k, uint32_t v, F f)
 {
-	std::unordered_set<uint32_t> visited_edges;
+	visited_vertices.insert(v);
 	traverse_1_ring(v, [&](const half_edge& h)				// 下面的是传给tranverse_1_ring的函数
 		{
 			if (visited_edges.count(h.index) == 0) f(h);			// 防止重复访问某个Halfedge
 			visited_edges.insert(h.index);
 			visited_edges.insert(h.opposite().index);
+
+			const uint32_t vert = h.vertex();
+			if (k > 1 && visited_vertices.count(vert) == 0) traverse_k_ring_edge(k - 1, vert, f);		// 同时迭代v的每一个对侧点
 		});
 }
 
@@ -62,11 +65,12 @@ void reduction::initialize()
 	candidatesNLD.setup_indexof(candidate_index);
 	candidatesREM.setup_indexof(candidate_index);
 
-	double l_max = 0, l_min = std::numeric_limits<double>::infinity(), angle_max = 0;
+	double l_max = 0, l_min = std::numeric_limits<double>::infinity();
+	double angle_min = std::numeric_limits<double>::infinity();
 
 	/// 在进行操作前先把所有需要flip的边flip掉
 	/// 统计non_delaunay_valid的【edge】的数量
-	/// 寻找l_max, l_min, angle_max
+	/// 寻找l_max, l_min, angle_min
 	size_t _number = connectivity.num_half_edges();
 	for (uint32_t hx = 0; hx < _number; hx++)	/// TODO: parallel
 	{
@@ -90,11 +94,11 @@ void reduction::initialize()
 		if (l_v1v2 > l_max) l_max = l_v1v2;
 
 		auto [angle1, angle2] = opp_angle(obj, connectivity, hx);
-		if (angle1 > angle_max)	angle_max = angle1;
-		if (angle2 > angle_max) angle_max = angle2;
+		if (angle1 < angle_min)	angle_min = angle1;
+		if (angle2 < angle_min) angle_min = angle2;
 	}
 
-	nLiu = ceil(ini_num_vertices * l_max / (l_min * sin(angle_max) * sin(angle_max)));
+	nLiu = ceil(ini_num_vertices * l_max / (l_min * sin(angle_min) * sin(angle_min)));
 	sequence_d = 2 * (nLiu - ini_num_vertices);									/// operation sequence的长度
 }
 
@@ -125,7 +129,7 @@ void reduction::add_one_collapse(const half_edge& he)
 
 void reduction::add_split(const half_edge& he)
 {
-	if (!he.is_boundary()) return;
+	if (he.is_boundary()) return;
 	if (metric.delaunay_valid(he.index))										/// 如果本身是delaunay的，则不需要split
 	{
 		candidatesNLD._delete(he.index);		/// 该边之前可能是nonDelaunay的，现在变成了delaunay，所以要把NLD中的删除
@@ -151,12 +155,36 @@ void reduction::perform_flip(const half_edge& he)								/// 更新flip后的边及其n
 
 	stats.on_operation(Flip);								/// TODO: 考虑对临边delaunay情况的影响
 
-	// 更新he所在的两个三角形中的所有halfedges
+	// he所在的两个三角形所有vertex的one ring都要Update一下（对于REM）
+	visited_edges.clear();
+	visited_vertices.clear();
+	traverse_k_ring_edge(1, he.vertex(),										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+		[&](half_edge h) {
+			process_he(h);
+		});
+	traverse_k_ring_edge(1, he.opposite().vertex(),										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+		[&](half_edge h) {
+			process_he(h);
+		});
+	traverse_k_ring_edge(1, he.next().vertex(),										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+		[&](half_edge h) {
+			process_he(h);
+		});
+	traverse_k_ring_edge(1, he.opposite().next().vertex(),										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+		[&](half_edge h) {
+			process_he(h);
+		});
+
+	// 
+	/*
+	* 以下这些应该是检查NLD的
 	process_he(he);
 	process_he(he.next());
 	process_he(he.next().next());
 	process_he(he.opposite().next());
-	process_he(he.opposite().next().next());
+	process_he(he.opposite().next().next());	
+	*/
+
 }
 
 void reduction::process_he(const half_edge& he)
@@ -168,7 +196,6 @@ void reduction::process_he(const half_edge& he)
 		else 
 			add_operation(he);
 	}
-
 }
 
 void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从pirority queue中移除掉删掉了的halfedges，并更新周围的neighbour
@@ -176,19 +203,17 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 	half_edge he = connectivity.handle(c.index);						/// he是从要移除的点出射的
 	uint32_t to_keep = he.vertex();
 
-	/*
-	* 不需要提前存入2update的了
-	* 因为原to_remove的one ring包含在了collapse后的to_keep的one ring中
 	std::vector<uint32_t> he2update;
 	/// 将需要更新的halfedge的坐标存起来
-	/// 需要更新的是以 to_remove 为顶点的所有三角形的所有halfedge
+	/// 需要更新的是以 to_remove 的 2 ring
+	/// TO OPTIMIZE: REM需要更新2 ring，NLD只需要更新1 ring
 	uint32_t to_remove = he.opposite().vertex();
-	traverse_1_ring_edge(to_remove,										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+	visited_edges.clear();
+	visited_vertices.clear();
+	traverse_k_ring_edge(2, to_remove,										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
 		[&](half_edge h) {
 				he2update.push_back(h.index);										
 		});	
-	*/
-
 
 	stats.on_operation(Collapse);
 
@@ -198,31 +223,23 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		candidatesNLD._delete(h);
 	}
 
-	traverse_1_ring_edge(to_keep,										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
-		[&](half_edge h) {
-			process_he(h);
-		});
-
-	/*
 	for (uint32_t h : he2update)
 	{
 		if (connectivity.handle(h).is_valid())							/// 更新未删掉的Halfedge
 			process_he(connectivity.handle(h));
 	}	
-	*/
-
 
 /// 临时debug加的
 /// ----------------------------------------
 // Plot the mesh
-	/*
+	
 	mesh Mesh;
 	Mesh.vertices = obj.vertices;
 	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 	remove_standalone_vertices(Mesh, connectivity);
 
-	Mesh.save("cylindrical_oneCollapse.obj");	
-	*/
+	Mesh.save("oneNLD.obj");	
+	
 
 }
 
@@ -240,16 +257,33 @@ void reduction::perform_split(const detail::candidate_operation& c)
 	// stats.num_nonDelaunay += nonDelaunay - 1;									/// -1是因为h不再是non-delaunay的了
 
 	uint32_t vertex_index = obj.vertices.size() - 1;
-	connectivity.split_edge(h.index, vertex_index);								/// vector 的 index 从0开始
+	connectivity.split_edge(h.index, vertex_index);									/// vector 的 index 从0开始
 
 	stats.on_operation(Split);
 
 	/// update neightbourhood
 	/// 问题: process_he是类里的函数，不能直接传，并且connectivity,stats等的只在这个类存在
 	/// 采用的解决方法：把相关函数单拿出来放到这边的类里
-	traverse_1_ring_edge(vertex_index, [&](half_edge he) {
-		process_he(he);
+	/// TO OPTIMIZE: REM需要更新2 ring，NLD只需要更新1 ring
+	visited_edges.clear();
+	visited_vertices.clear();
+	std::vector<uint32_t> he2update;
+	traverse_k_ring_edge(2, vertex_index, [&](half_edge he) {
+		he2update.push_back(h.index);
 		});
+
+	for (uint32_t h : he2update)					// 不能再traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
+	{
+		if (connectivity.handle(h).is_valid())						
+			process_he(connectivity.handle(h));
+	}
+
+	mesh Mesh1;
+	Mesh1.vertices = obj.vertices;
+	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+	remove_standalone_vertices(Mesh1, connectivity);
+
+	Mesh1.save("split_test.obj");
 }
 
 std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
@@ -380,7 +414,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 			connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 			remove_standalone_vertices(Mesh1, connectivity);
 
-			Mesh1.save("cylindrical_test.obj");
+			Mesh1.save("dinosaur2k_test.obj");
 
 			return { Mesh, S };
 		}

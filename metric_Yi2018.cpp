@@ -110,7 +110,7 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 
 	double pI0_1, pI0_2, pI1, pI2, pI3, pI4, pa, pb;
 
-	// 以a->b建立数轴，a为原点
+	// 以a->b建立数轴，a为原点，坐标为0；b坐标为ab向量的长度
 	pa = 0;
 	pb = (b - a).norm();
 	pI0_1 = intersec_l_c(c, d, a, a, b);				//靠近a点的
@@ -121,13 +121,19 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 	pI4 = intersec_l_c(d, D4, a, a, b);
 
 	std::pair<double, double> I0(pI0_1, pI0_2);
-	std::vector<std::pair<uint32_t, uint32_t>> I(4);
+	std::vector<std::pair<double, double>> I(4);
 	I.push_back(std::pair(pI1, pb));
 	I.push_back(std::pair(pa, pI2));
 	I.push_back(std::pair(pa, pI3));
 	I.push_back(std::pair(pI4, pb));
 
-	for (std::vector<std::pair<uint32_t, uint32_t>>::iterator iter = I.begin(); iter != I.end(); )
+	if (I0.second > pb)	I0.second = pb;
+	if (I0.first < pa)	I0.first = pa;
+	
+
+	// 有没有I0和ab没有交集的情况？
+
+	for (std::vector<std::pair<double, double>>::iterator iter = I.begin(); iter != I.end(); )
 	{
 		if (iter->second < I0.first || iter->first > I0.second)	iter = I.erase(iter);
 		else
@@ -139,10 +145,23 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 	}
 
 	std::pair<double, int> pmax((I0.first+I0.second)/2.0, 0), p;
-	double delta = pb / 20;
-	for (int i = 0; i < 20; ++i)
+	double delta = pb / 21;
+	int j;
+	for (int i = 10; i < 21; ++i)						// 从中间开始，更容易找到，找到的也更合适
 	{
+		// 向大的
 		p.first = delta * i;
+		p.second = 0;
+		for (std::pair<uint32_t, uint32_t> s : I)
+		{
+			if (p.first > s.first && p.first < s.second)	++p.second;
+		}
+		if (p.second > pmax.second)	pmax = p;
+		if (pmax.second == 4)	break;
+
+		// 向小的
+		j = 21 - i;
+		p.first = delta * j;
 		p.second = 0;
 		for (std::pair<uint32_t, uint32_t> s : I)
 		{
