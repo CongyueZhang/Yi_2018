@@ -120,7 +120,7 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 	pI3 = intersec_l_c(d, D3, b, a, b);
 	pI4 = intersec_l_c(d, D4, a, a, b);
 
-	std::pair<double, double> I0(pI0_1, pI0_2);
+	std::pair<double, double> I0(pI0_2, pI0_1);
 	std::vector<std::pair<double, double>> I(4);
 	I.push_back(std::pair(pI1, pb));
 	I.push_back(std::pair(pa, pI2));
@@ -145,12 +145,14 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 	}
 
 	std::pair<double, int> pmax((I0.first+I0.second)/2.0, 0), p;
-	double delta = pb / 21;
+
+	// 在I0中采样
+	double delta = (I0.second - I0.first) / 21;
 	int j;
 	for (int i = 10; i < 21; ++i)						// 从中间开始，更容易找到，找到的也更合适
 	{
 		// 向大的
-		p.first = delta * i;
+		p.first = delta * i + I0.first;
 		p.second = 0;
 		for (std::pair<uint32_t, uint32_t> s : I)
 		{

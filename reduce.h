@@ -100,7 +100,7 @@ struct reduction {
 	{
 		connectivity = obj.half_edges();
 		ini_num_vertices = obj.num_vertices();
-		metric.setup((const mesh&)obj, (half_edge_connectivity&)connectivity);
+		metric.setup(obj, connectivity);
 	}
 
 	void initialize();
@@ -128,6 +128,12 @@ private:
 	void traverse_k_ring_edge(unsigned int k, uint32_t v, F f);
 	template<typename F>
 	void traverse_1_ring(uint32_t v, F f);
+
+	template<typename F>
+	void traverse_2_triangles(half_edge h, F f);
+	// Liu, 2015中的方法
+	void Liu_process_he(const uint32_t& hx);
+	void Liu_perform_split(const detail::candidate_operation& c);
 };
 
 inline size_t reduction::get_nLiu() { return nLiu; };

@@ -284,7 +284,7 @@ void get_edge_2_ring(const half_edge_connectivity& connectivity, const std::vect
 ///------------------------------------------------------------
 double getAngle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2)
 {
-	return std::abs(std::acos(v1.dot(v2) / (v1.norm() * v2.norm())));			// 改动：加了abs函数
+	return std::abs(std::acos(v1.normalized().dot(v2.normalized())));			
 }
 
 /// 找edge的对角
