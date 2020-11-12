@@ -40,17 +40,17 @@ Eigen::Vector3d intersec_l_c(const Eigen::Vector3d a, const Eigen::Vector3d b, c
 /// 求点和线段的交点
 /// p1, pe, p3是圆的三点坐标；a, b是线段的两个顶点	数轴以  a->b
 /// 其中p3为 a或b
-double intersec_l_c(const Eigen::Vector3d p1, const Eigen::Vector3d p2, const Eigen::Vector3d p3, const Eigen::Vector3d a, const Eigen::Vector3d b)
+double intersec_l_c(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, const Eigen::Vector3d& p3, const Eigen::Vector3d& a, const Eigen::Vector3d& b)
 {
 	Circle c = Circle(Point(p1[0], p1[1], p1[2]), Point(p2[0], p2[1], p2[2]), Point(p3[0], p3[1], p3[2]));
 	Eigen::Vector3d center((c.center()).x(), (c.center()).y(), (c.center()).z());
-	double r = c.squared_radius();
 
-	Eigen::Vector3d dir = b - a;				
-	dir = dir / dir.norm();						// dir是direction，即a->b的方向向量
+	Eigen::Vector3d dir = (b - a).normalized();			// dir是direction，即a->b的方向向量
 	Eigen::Vector3d a2c = center - a;			// a指向center的向量
 
-	return 2 * a2c.dot(dir);					// return的是在 a->b数轴 上的坐标
+	double I = 2 * a2c.dot(dir);
+
+	return I;					// return的是I的长度
 }
 
 /*
@@ -114,10 +114,10 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 	pa = 0;
 	pb = (b - a).norm();
 	pI0_1 = intersec_l_c(c, d, a, a, b);				//靠近a点的
-	pI0_2 = intersec_l_c(c, d, b, a, b);				//靠近b点的
+	pI0_2 = pb - intersec_l_c(c, d, b, b, a);				//靠近b点的
 	pI1 = intersec_l_c(c, D1, a, a, b);
-	pI2 = intersec_l_c(c, D2, b, a, b);
-	pI3 = intersec_l_c(d, D3, b, a, b);
+	pI2 = pb - intersec_l_c(c, D2, b, b, a);
+	pI3 = pb - intersec_l_c(d, D3, b, b, a);
 	pI4 = intersec_l_c(d, D4, a, a, b);
 
 	std::pair<double, double> I0(pI0_2, pI0_1);
@@ -163,7 +163,7 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 
 		// 向小的
 		j = 21 - i;
-		p.first = delta * j;
+		p.first = delta * j + I0.first;
 		p.second = 0;
 		for (std::pair<uint32_t, uint32_t> s : I)
 		{
@@ -173,7 +173,7 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 		if (pmax.second == 4)	break;
 	}
 
-	return { 4 - pmax.second, a + (b - a) / (b - a).norm() * pmax.first };
+	return { 4 - pmax.second, a + (b - a).normalized() * pmax.first };
 }
 
 

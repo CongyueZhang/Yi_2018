@@ -70,20 +70,17 @@ void reduction::traverse_2_triangles(half_edge h, F f)
 
 void reduction::Liu_process_he(const uint32_t& hx)
 {
-	if (!metric.delaunay_valid(hx))
+	half_edge he = connectivity.handle(hx);
+	if (!metric.delaunay_valid(hx) && metric.flip_valid(hx))
 	{
-		if (metric.flip_valid(hx))
-		{
-			connectivity.flip_edge(hx);
-			candidatesNLD._delete(hx);
-			// 看对其他边有无影响  （hx所在的两个三角形中的其他边）
-			traverse_2_triangles(connectivity.handle(hx), [&](half_edge& h) {
-				Liu_process_he(h.index);
-				});
-		}
-		else
-			add_split(connectivity.handle(hx));
+		connectivity.flip_edge(hx);
+		candidatesNLD._delete(hx);
+		// 看对其他边有无影响  （hx所在的两个三角形中的其他边）
+		traverse_2_triangles(he, [&](half_edge& h) {
+			Liu_process_he(h.index);
+			});
 	}
+	add_split(he);
 }
 
 void reduction::Liu_perform_split(const detail::candidate_operation& c)
@@ -101,13 +98,18 @@ void reduction::Liu_perform_split(const detail::candidate_operation& c)
 
 	// 临时debug加的
 	// ------------------------
-	system("pause");
+	/*
+	//system("pause");
 	mesh Mesh1;
 	Mesh1.vertices = obj.vertices;
 	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 	remove_standalone_vertices(Mesh1, connectivity);
 
-	Mesh1.save("dinosaur2k_test" + std::to_string(stats.num_split) + std::to_string(".obj"));
+	Mesh1.save("cylindrical_oneNLD_test_" + std::to_string(stats.num_split) + ".obj");		
+	*/
+
+	
+
 	// ------------------------
 
 	stats.on_operation(Split);
@@ -249,23 +251,32 @@ void reduction::perform_flip(const half_edge& he)								/// 更新flip后的边及其n
 	// he所在的两个三角形所有vertex的one ring都要Update一下（对于REM）
 	visited_edges.clear();
 	visited_vertices.clear();
-	traverse_k_ring_edge(1, he.vertex(),										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+
+	// TODO: 修复bug
+	// 如果在traverse的过程中flip了，则traverse会死循环
+	std::vector<uint32_t> he2update;
+	traverse_k_ring_edge(1, he.vertex(),										
 		[&](half_edge h) {
-			process_he(h);
+			he2update.push_back(h.index);
 		});
-	traverse_k_ring_edge(1, he.opposite().vertex(),										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+	traverse_k_ring_edge(1, he.opposite().vertex(),	
 		[&](half_edge h) {
-			process_he(h);
+			he2update.push_back(h.index);
 		});
-	traverse_k_ring_edge(1, he.next().vertex(),										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+	traverse_k_ring_edge(1, he.next().vertex(),
 		[&](half_edge h) {
-			process_he(h);
+			he2update.push_back(h.index);
 		});
-	traverse_k_ring_edge(1, he.opposite().next().vertex(),										/// collapse和split现在都是针对edge而不是Halfedge，所以要防止重复遍历同一个edge
+	traverse_k_ring_edge(1, he.opposite().next().vertex(),
 		[&](half_edge h) {
-			process_he(h);
+			he2update.push_back(h.index);
 		});
 
+	for (uint32_t h : he2update)					// 不能再traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
+	{
+		if (connectivity.handle(h).is_valid())
+			process_he(connectivity.handle(h));
+	}
 	// 
 	/*
 	* 以下这些应该是检查NLD的
@@ -294,7 +305,10 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 	half_edge he = connectivity.handle(c.index);						/// he是从要移除的点出射的
 	uint32_t to_keep = he.vertex();
 
+	// TODO: To optimize
+	// 将he2update直接存成unordered_set
 	std::vector<uint32_t> he2update;
+	
 	/// 将需要更新的halfedge的坐标存起来
 	/// 需要更新的是以 to_remove 的 2 ring
 	/// TO OPTIMIZE: REM需要更新2 ring，NLD只需要更新1 ring
@@ -323,15 +337,14 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 /// 临时debug加的
 /// ----------------------------------------
 // Plot the mesh
-	
+	/*
 	mesh Mesh;
 	Mesh.vertices = obj.vertices;
 	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 	remove_standalone_vertices(Mesh, connectivity);
 
-	Mesh.save("oneNLD.obj");	
-	
-
+	Mesh.save("oneNLD.obj");		
+	*/
 }
 
 /// 先从priority queue中删掉已有的Halfedges
@@ -377,9 +390,9 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 
 	/// delete connectivity;			///TODO: 确认一下是否需要主动释放空间
 	connectivity = obj.half_edges();
-	metric.setup(obj, connectivity);
-
 	obj.vertices.resize(ini_num_vertices);
+
+	metric.setup(obj, connectivity);
 
 	candidatesNLD.clear();
 	candidatesNLD.clear();
