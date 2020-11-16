@@ -116,24 +116,19 @@ private:
 	size_t sequence_d = 0;		// operation sequence的长度
 	min_priority_queue<detail::candidate_operation, std::function<uint32_t(const detail::candidate_operation& c)>> candidatesNLD;	//T是candidate_operation，IndexFn是uint32_t；将candidate_index函数给index_of
 	min_priority_queue<detail::candidate_operation, std::function<uint32_t(const detail::candidate_operation& c)>> candidatesREM;
-	std::unordered_set<uint32_t> visited_edges;
-	std::unordered_set<uint32_t> visited_vertices;
+	
 	void add_collapse(const half_edge& he);
 	void add_one_collapse(const half_edge& he);
-	void add_split(const half_edge& he);
-	void add_operation(const half_edge& he);
+	void add_split(const half_edge& he, const bool& he_delaunay_valid);
 	void perform_flip(const half_edge& he);
 	void process_he(const half_edge& he);
 	void perform_collapse(const detail::candidate_operation& c);
 	void perform_split(const detail::candidate_operation& c);
 
 	template<typename F>
-	void traverse_k_ring_edge(unsigned int k, uint32_t v, F f);
-	template<typename F>
-	void traverse_1_ring(uint32_t v, F f);
-
-	template<typename F>
 	void traverse_2_triangles(half_edge h, F f);
+
+
 	// Liu, 2015中的方法
 	void Liu_process_he(const uint32_t& hx);
 	void Liu_perform_split(const detail::candidate_operation& c);

@@ -10,16 +10,9 @@ struct half_edge_data
 	uint32_t next;					// next中存的好像是index
 	uint32_t opposite;
 	uint32_t vertex;
-	//bool delaunay_valid;
 
 	half_edge_data(uint32_t v = uint32_t(-1), uint32_t n = uint32_t(-1), uint32_t o = uint32_t(-1)) : next(n), opposite(o), vertex(v) {}
 	bool is_valid() const { return vertex != uint32_t(-1) && next != uint32_t(-1); }		//uint32_t(-1)是uint32_t类型的最大值，视正常情况下没有这么大的坐标
-	
-	/// 感觉直接在priority queue中测试能否delete会更快
-	//void delaunay_valid_change()
-	//{
-	//	delaunay_valid = !delaunay_valid;
-	//}
 };
 
 struct half_edge /// TODO: allow const AND non-const usage
@@ -33,7 +26,8 @@ struct half_edge /// TODO: allow const AND non-const usage
 	half_edge opposite() const;
 	size_t arity() const;
 	bool is_boundary() const;
-	//bool is_delaunay_valid() const;
+	/// 定义edge_index为两个halfedge中index小的那个
+	uint32_t edge_index() const;
 
 	bool operator==(const half_edge& he) const;
 	bool operator!=(const half_edge& he) const;
@@ -83,8 +77,6 @@ private:
 public:
 	/// 从private移过来的
 	std::vector<half_edge_data> half_edges;
-	// Invariant: this always point to a boundary edge going *from* the vertex
-	std::vector<uint32_t> vertex_to_half_edge;
 
 	/// Convert a list of indices to half-edge connectivity
 	half_edge_connectivity(size_t num_vertices, const std::vector<uint32_t>& indices);
@@ -207,13 +199,15 @@ private:
 
 	//half_edges本来在的地方
 
-	// vertex_to_half_edge本来在的地方
+	// Invariant: this always point to a boundary edge going *from* the vertex
+	std::vector<uint32_t> vertex_to_half_edge;
 
 	// Store invalid half edges in a heap; this allow to find them fast for re-use
 	std::vector<uint32_t> free_half_edges;
 };
 
 // Half edge
+inline uint32_t half_edge::edge_index() const { return index != uint32_t(-1) ? std::min(opposite().index, index) : uint32_t(-1); }
 inline bool half_edge::is_valid() const { return index != uint32_t(-1) && connec->half_edges[index].is_valid(); }
 inline uint32_t half_edge::vertex() const { return index != uint32_t(-1) ? connec->half_edges[index].vertex : uint32_t(-1); }
 inline half_edge half_edge::next() const { return index != uint32_t(-1) ? half_edge{ connec, connec->half_edges[index].next } : *this; }
