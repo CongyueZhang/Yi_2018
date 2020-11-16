@@ -74,11 +74,17 @@ void reduction::Liu_process_he(const uint32_t& hx)
 	if (!metric.delaunay_valid(hx) && metric.flip_valid(hx))
 	{
 		connectivity.flip_edge(hx);
-		candidatesNLD._delete(hx);
+		candidatesNLD._delete(std::min(hx, he.opposite().index));
 		// 看对其他边有无影响  （hx所在的两个三角形中的其他边）
+		std::vector<uint32_t> he2update;
 		traverse_2_triangles(he, [&](half_edge& h) {
-			Liu_process_he(h.index);
+			he2update.push_back(h.index);
 			});
+		for (uint32_t h : he2update)		
+		{
+			if (connectivity.handle(h).is_valid())
+				Liu_process_he(h);
+		}
 	}
 	add_split(he);
 }
@@ -90,29 +96,22 @@ void reduction::Liu_perform_split(const detail::candidate_operation& c)
 	auto [nonDelaunay, vertexPosition] = metric.split_position(h);
 	obj.vertices.push_back(vertexPosition);											/// 将新插入的点的坐标，推入 obj.vertices 这个 vector 的最后
 
-	// 采用了统计nondelaunay的新方法后，应该用不到了
-	// stats.num_nonDelaunay += nonDelaunay - 1;									/// -1是因为h不再是non-delaunay的了
-
 	uint32_t vertex_index = obj.vertices.size() - 1;
-	connectivity.split_edge(h.index, vertex_index);									/// vector 的 index 从0开始
+	connectivity.split_edge(h.index, vertex_index);				
+	stats.on_operation(Split);
 
 	// 临时debug加的
 	// ------------------------
-	/*
 	//system("pause");
+	/*
 	mesh Mesh1;
 	Mesh1.vertices = obj.vertices;
 	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 	remove_standalone_vertices(Mesh1, connectivity);
 
-	Mesh1.save("cylindrical_oneNLD_test_" + std::to_string(stats.num_split) + ".obj");		
+	Mesh1.save("delaunay_test_split" + std::to_string(stats.num_split) + "_REM" + std::to_string(candidatesNLD.size()) + ".obj");	
 	*/
-
-	
-
 	// ------------------------
-
-	stats.on_operation(Split);
 
 	/// update neightbourhood
 	visited_edges.clear();
@@ -122,7 +121,7 @@ void reduction::Liu_perform_split(const detail::candidate_operation& c)
 		he2update.push_back(h.index);
 		});
 
-	for (uint32_t h : he2update)					// 不能再traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
+	for (uint32_t h : he2update)					// 不能在traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
 	{
 		Liu_process_he(h);
 	}
@@ -139,6 +138,12 @@ void reduction::initialize()
 
 	metric.setup(obj, connectivity);
 
+	candidatesNLD.clear();
+	candidatesREM.clear();
+	// Fill the candidate queue
+	candidatesREM.reserve(connectivity.num_half_edges(), connectivity.num_half_edges());
+	candidatesNLD.reserve(std::ceil(connectivity.num_half_edges() / 2.0), std::ceil(connectivity.num_half_edges() / 2.0));
+
 	/// 在进行操作前先把所有需要flip的边flip掉
 	/// 统计non_delaunay_valid的【edge】的数量
 	/// 寻找l_max, l_min, angle_min
@@ -150,7 +155,7 @@ void reduction::initialize()
 	{
 		const half_edge he = connectivity.handle(hx);
 		const uint32_t ho = he.opposite().index;
-		if (!he.is_boundary() && he.index < ho) continue;						/// he.index < ho 是为了防止重复遍历一条edge
+		if (!he.is_boundary() && hx > ho) continue;						/// he.index > ho 是为了防止重复遍历一条edge
 
 		Liu_process_he(hx);
 	}
@@ -164,32 +169,14 @@ void reduction::initialize()
 	nLiu = obj.num_vertices();
 	sequence_d = 2 * (nLiu - ini_num_vertices);
 
-	/*
-	* 看起来算最坏复杂度好像用处不大
-	double l_max = 0, l_min = std::numeric_limits<double>::infinity();
-	double angle_min = std::numeric_limits<double>::infinity();
-	for (uint32_t hx = 0; hx < _number; hx++)	/// TODO: parallel
-	{
-		const half_edge he = connectivity.handle(hx);
-		const uint32_t ho = he.opposite().index;
-		if (!he.is_boundary() && he.index < ho) continue;						/// he.index < ho 是为了防止重复遍历一条edge
+	/// 临时debug加的
+	mesh Mesh1;
+	Mesh1.vertices = obj.vertices;
+	Mesh1.triangles.clear();
+	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });
+	remove_standalone_vertices(Mesh1, connectivity);
 
-		Eigen::Vector3d v1, v2;													/// he的两个顶点
-		v1 = obj.vertices[he.vertex()];
-		v2 = obj.vertices[he.opposite().vertex()];
-		double l_v1v2 = (v1 - v2).norm();
-		if (l_v1v2 < l_min)	l_min = l_v1v2;
-		if (l_v1v2 > l_max) l_max = l_v1v2;
-
-		auto [angle1, angle2] = opp_angle(obj, connectivity, hx);
-		if (angle1 < angle_min)	angle_min = angle1;
-		if (angle2 < angle_min) angle_min = angle2;
-	}
-
-	nLiu = ceil(ini_num_vertices * l_max / (l_min * sin(angle_min) * sin(angle_min)));
-	sequence_d = 2 * (nLiu - ini_num_vertices);									/// operation sequence的长度	
-	*/
-
+	Mesh1.save("initialization_test.obj");
 
 }
 
@@ -223,12 +210,12 @@ void reduction::add_split(const half_edge& he)
 	if (he.is_boundary()) return;
 	if (metric.delaunay_valid(he.index))										/// 如果本身是delaunay的，则不需要split
 	{
-		candidatesNLD._delete(he.index);		/// 该边之前可能是nonDelaunay的，现在变成了delaunay，所以要把NLD中的删除
+		candidatesNLD._delete(std::min(he.index, he.opposite().index));		/// 该边之前可能是nonDelaunay的，现在变成了delaunay，所以要把NLD中的删除
 		return;
 	}
 
 	detail::candidate_operation c;
-	c.index = he.index;
+	c.index = std::min(he.index,he.opposite().index);
 	c.weight = metric.cost_split(he.index);
 	candidatesNLD.push(c);
 }
@@ -244,7 +231,7 @@ void reduction::perform_flip(const half_edge& he)								/// 更新flip后的边及其n
 {
 	connectivity.flip_edge(he.index);
 
-	candidatesNLD._delete(he.index);
+	candidatesNLD._delete(std::min(he.index, he.opposite().index));
 
 	stats.on_operation(Flip);								/// TODO: 考虑对临边delaunay情况的影响
 
@@ -325,7 +312,7 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 	for (uint32_t h : connectivity.collapse_edge(c.index))				/// connectivity.collapse_edge()返回的是 index of removed half edges
 	{
 		candidatesREM._delete(h);										/// 从priority queue中移除这些删掉了的边
-		candidatesNLD._delete(h);
+		candidatesNLD._delete(std::min(h, connectivity.handle(h).opposite().index));
 	}
 
 	for (uint32_t h : he2update)
@@ -389,13 +376,14 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 	stats.num_vertices = ini_num_vertices;
 
 	/// delete connectivity;			///TODO: 确认一下是否需要主动释放空间
-	connectivity = obj.half_edges();
 	obj.vertices.resize(ini_num_vertices);
+	obj.vertices = ori_vertices;
+	connectivity = obj.half_edges();
 
 	metric.setup(obj, connectivity);
 
 	candidatesNLD.clear();
-	candidatesNLD.clear();
+	candidatesREM.clear();
 
 	// Fill the candidate queue
 	candidatesREM.reserve(connectivity.num_half_edges(), connectivity.num_half_edges());
@@ -404,7 +392,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 	for (uint32_t hx = 0; hx < connectivity.num_half_edges(); hx++) /// TODO: parallel
 	{
 		half_edge he = connectivity.handle(hx);
-		if (!he.is_boundary() && he.index > he.opposite().index) continue;								/// he.index > ho 防止重复遍历一条edge
+		if (!he.is_boundary() && he.index > he.opposite().index) continue;
 
 		process_he(he);																
 	}
@@ -442,8 +430,6 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 
 				const detail::candidate_operation c = candidatesNLD.pop();
 				perform_split(c);
-				++stats.num_split;
-				++stats.num_vertices;
 			}
 		}
 
@@ -466,8 +452,6 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 
 				const detail::candidate_operation c = candidatesREM.pop();
 				perform_collapse(c);
-				++stats.num_collapse;
-				--stats.num_vertices;
 			}
 		}
 
@@ -501,17 +485,18 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 				S.push_back(num_collap);
 
 			Mesh.vertices = obj.vertices;
+			Mesh.triangles.clear();
 			connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 			remove_standalone_vertices(Mesh, connectivity);
-			obj.vertices.resize(ini_num_vertices);
 
 			/// 临时debug加的
 			mesh Mesh1;
 			Mesh1.vertices = obj.vertices;
-			connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+			Mesh1.triangles.clear();
+			connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });		
 			remove_standalone_vertices(Mesh1, connectivity);
 
-			Mesh1.save("dinosaur2k_test.obj");
+			Mesh1.save("test.obj");
 
 			return { Mesh, S };
 		}

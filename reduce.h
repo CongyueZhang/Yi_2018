@@ -96,11 +96,14 @@ struct reduction {
 	size_t ini_num_vertices = 0;
 	size_t target_num_vertices = 0;
 
+	std::vector<Eigen::Vector3d> ori_vertices;
+
 	reduction(mesh &obj, reduction_metric &metric, const size_t &target_vertices):obj(obj), metric(metric), target_num_vertices(target_vertices)
 	{
 		connectivity = obj.half_edges();
 		ini_num_vertices = obj.num_vertices();
 		metric.setup(obj, connectivity);
+		ori_vertices = obj.vertices;
 	}
 
 	void initialize();

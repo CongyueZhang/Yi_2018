@@ -122,16 +122,13 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 
 	std::pair<double, double> I0(pI0_2, pI0_1);
 	std::vector<std::pair<double, double>> I(4);
-	I.push_back(std::pair(pI1, pb));
-	I.push_back(std::pair(pa, pI2));
-	I.push_back(std::pair(pa, pI3));
-	I.push_back(std::pair(pI4, pb));
+	I[0] = std::make_pair(pI1, pb);
+	I[1] = std::make_pair(pa, pI2);
+	I[2] = std::make_pair(pa, pI3);
+	I[3] = std::make_pair(pI4, pb);
 
 	if (I0.second > pb)	I0.second = pb;
 	if (I0.first < pa)	I0.first = pa;
-	
-
-	// 有没有I0和ab没有交集的情况？
 
 	for (std::vector<std::pair<double, double>>::iterator iter = I.begin(); iter != I.end(); )
 	{
@@ -147,9 +144,10 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 	std::pair<double, int> pmax((I0.first+I0.second)/2.0, 0), p;
 
 	// 在I0中采样
-	double delta = (I0.second - I0.first) / 21;
+	size_t N = 51;				// 采样个数
+	double delta = (I0.second - I0.first) / N;
 	int j;
-	for (int i = 10; i < 21; ++i)						// 从中间开始，更容易找到，找到的也更合适
+	for (int i = N/2+1; i < N; ++i)						// 从中间开始，更容易找到，找到的也更合适
 	{
 		// 向大的
 		p.first = delta * i + I0.first;
@@ -162,7 +160,7 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 		if (pmax.second == 4)	break;
 
 		// 向小的
-		j = 21 - i;
+		j = N - i;
 		p.first = delta * j + I0.first;
 		p.second = 0;
 		for (std::pair<uint32_t, uint32_t> s : I)
@@ -222,6 +220,7 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	std::vector<uint32_t> half_edges_index;
 
 	half_edge he = connectivity->handle(h_index);							// he: v -> v'   v是to_remove
+	std::unordered_set<uint32_t> visited_edges;
 	uint32_t start = uint32_t(-1);
 	while (he.is_valid() && he.index != start)								// 遍历v的one ring
 	{
@@ -249,7 +248,6 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	// 检测collapse后是否满足条件
 	// ------------------------
 	bool validity = true;
-	std::unordered_set<uint32_t> visited_edges;
 	for (uint32_t index: half_edges_index)
 	{
 		if (!connectivity->half_edges[index].is_valid())	continue;		//说明该边已经被删除
