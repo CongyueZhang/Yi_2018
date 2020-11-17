@@ -5,6 +5,8 @@
 #include "half_edges.h"
 #include "traversal.h"
 
+#include <igl/opengl/glfw/Viewer.h>
+
 #include <execution>
 #include<math.h>
 #include <iostream>
@@ -26,12 +28,12 @@ void remove_standalone_vertices(mesh& obj, const half_edge_connectivity& connect
 			idx = map[idx];
 }
 
+/// 遍历halfedge h所在的两个triangle的另外四个edge
+/// --------------------------------------------
 template<typename F>
 void reduction::traverse_2_triangles(half_edge h, F f)						
 {
-	half_edge g;
-	g = h.opposite();
-	f(h);
+	half_edge g = h.opposite();
 	f(h = h.next());
 	f(h = h.next());
 	f(g = g.next());
@@ -46,23 +48,23 @@ void reduction::Liu_process_he(const uint32_t& hx)
 	if (!he_delaunay_valid && metric.flip_valid(hx))
 	{
 		connectivity.flip_edge(hx);
-		candidatesNLD._delete(he.edge_index());
+		candidatesNLD._delete(he.index);
+		candidatesNLD._delete(he.opposite().index);
 		// 看对其他边有无影响  （hx所在的两个三角形中的其他边）
 		std::unordered_set<uint32_t> he2update;
 		traverse_2_triangles(he, [&](half_edge& h) {
 			he2update.insert(h.edge_index());
 			});
 		for (uint32_t h : he2update)		
-		{
-			if (connectivity.handle(h).is_valid())
-				Liu_process_he(h);
-		}
+			Liu_process_he(h);
 	}
 	else 
 		add_split(he, he_delaunay_valid);			// 必须在else里，因为flip中he_delaunay_valid可能会改变，不能还用以前的值
 		// 如果flip，该边最终肯定会在flip中的迭代里更新
 }
 
+/// Liu方法中的split函数
+/// -------------------------------------------------------------------
 void reduction::Liu_perform_split(const detail::candidate_operation& c)
 {
 	half_edge h = connectivity.handle(c.index);
@@ -74,24 +76,38 @@ void reduction::Liu_perform_split(const detail::candidate_operation& c)
 	connectivity.split_edge(h.index, vertex_index);				
 	stats.on_operation(Split);
 
+	/*
 	// 临时debug加的
 	// ------------------------
-	//system("pause");
-	/*
 	mesh Mesh1;
 	Mesh1.vertices = obj.vertices;
 	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 	remove_standalone_vertices(Mesh1, connectivity);
-
 	Mesh1.save("delaunay_test_split" + std::to_string(stats.num_split) + "_REM" + std::to_string(candidatesNLD.size()) + ".obj");	
+	// ------------------------	
 	*/
-	// ------------------------
+
+
+	/*
+	/// debug
+	/// -----------------------------------------
+	// Plot the mesh
+	mesh Mesh1;
+	Mesh1.vertices = obj.vertices;
+	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+	remove_standalone_vertices(Mesh1, connectivity);
+	igl::opengl::glfw::Viewer viewer;
+	viewer.data().set_mesh(Mesh1.matrix_vertices(), Mesh1.matrix_triangles());
+	viewer.core().set_rotation_type(igl::opengl::ViewerCore::ROTATION_TYPE_TRACKBALL);
+	viewer.launch();
+	/// -----------------------------------------
+	*/
 
 	/// update neightbourhood
 	std::unordered_set<uint32_t> he2update;
 	const char* option = "edge";
 	k_ring(connectivity, 1, option, vertex_index, [&](half_edge he) {
-		he2update.insert(h.edge_index());
+		he2update.insert(he.edge_index());
 		});
 
 	for (uint32_t h : he2update)					// 不能在traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
@@ -115,13 +131,11 @@ void reduction::initialize()
 	candidatesREM.clear();
 	// Fill the candidate queue
 	candidatesREM.reserve(connectivity.num_half_edges(), connectivity.num_half_edges());
-	candidatesNLD.reserve(std::ceil(connectivity.num_half_edges() / 2.0), std::ceil(connectivity.num_half_edges() / 2.0));
+	candidatesNLD.reserve(std::ceil(connectivity.num_half_edges()), std::ceil(connectivity.num_half_edges()));
 
-	/// 在进行操作前先把所有需要flip的边flip掉
+	/// 构建NLD queue
+	/// --------------------------------------------
 	size_t _number = connectivity.num_half_edges();
-
-	// 先把能filp的全flip掉
-	// 并构建NLD queue
 	for (uint32_t hx = 0; hx < _number; hx++)
 	{
 		const half_edge he = connectivity.handle(hx);
@@ -131,6 +145,9 @@ void reduction::initialize()
 		Liu_process_he(hx);
 	}
 
+	/// 进行split操作
+	/// 直到NLD queue为空
+	/// --------------------------
 	while (!candidatesNLD.empty())
 	{
 		const detail::candidate_operation c = candidatesNLD.pop();
@@ -178,10 +195,11 @@ void reduction::add_one_collapse(const half_edge& he)
 
 void reduction::add_split(const half_edge& he, const bool& he_delaunay_valid)
 {
-	if (he.is_boundary()) return;
-	if (he_delaunay_valid)											/// 如果本身是delaunay的，则不需要split
+	// if (he.is_boundary()) return;										/// 暂时去掉，看有没有bug是因为这个
+	if (he_delaunay_valid)													/// 如果本身是delaunay的，则不需要split
 	{
-		candidatesNLD._delete(he.edge_index());									/// 该边之前可能是nonDelaunay的，现在变成了delaunay，所以要把NLD中的删除
+		candidatesNLD._delete(he.index);									/// 该边之前可能是nonDelaunay的，现在变成了delaunay，所以要把NLD中的删除
+		candidatesNLD._delete(he.opposite().index);
 		return;
 	}
 
@@ -195,7 +213,8 @@ void reduction::perform_flip(const half_edge& he)								/// 更新flip后的边及其n
 {
 	connectivity.flip_edge(he.index);
 
-	candidatesNLD._delete(he.edge_index());
+	candidatesNLD._delete(he.index);
+	candidatesNLD._delete(he.opposite().index);
 
 	stats.on_operation(Flip);								/// TODO: 考虑对临边delaunay情况的影响
 
@@ -209,11 +228,16 @@ void reduction::perform_flip(const half_edge& he)								/// 更新flip后的边及其n
 	const char* option = "edge_ring";
 	k_ring(connectivity, option, REM2update, REM_NLD2update, he.index);
 
-	for (uint32_t h : REM_NLD2update)					// 不能再traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
-		process_he(connectivity.handle(h));
+	for (uint32_t hx : REM_NLD2update)					// 不能再traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
+		process_he(connectivity.handle(hx));
 
-	for (uint32_t h : REM2update)
-		add_one_collapse(connectivity.handle(h));
+	for (uint32_t hx : REM2update)
+	{
+		half_edge h = connectivity.handle(hx);
+		if(h.is_valid())
+			add_one_collapse(h);
+	}
+		
 }
 
 void reduction::process_he(const half_edge& he)
@@ -225,10 +249,9 @@ void reduction::process_he(const half_edge& he)
 			perform_flip(he);
 		else
 		{
-			add_collapse(he);
 			add_split(he, he_delaunay_valid);
 		}
-
+		add_collapse(he);
 	}
 }
 
@@ -251,7 +274,7 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 	for (uint32_t h : connectivity.collapse_edge(c.index))				/// connectivity.collapse_edge()返回的是 index of removed half edges
 	{
 		candidatesREM._delete(h);										/// 从priority queue中移除这些删掉了的边
-		candidatesNLD._delete(connectivity.handle(h).edge_index());
+		candidatesNLD._delete(h);
 	}
 
 	for (uint32_t h : REM_NLD2update)

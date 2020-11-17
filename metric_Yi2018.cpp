@@ -255,7 +255,6 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 		if (visited_edges.count(index) == 0)
 		{
 			/// 检测这个he是否是delaunay的
-			/// todo: 会有edge的重复遍历(因为每个edge有两个halfedge)   看下怎么优化减少重复   (可以通过visited_edges？)
 			if (!(delaunay_valid(index)))
 			{
 				validity = false;

@@ -74,6 +74,7 @@ private:
 	{
 		half_edge he = connectivity.handle(h);
 
+		REM_NLD->insert(he.index);
 		visited_vertices.insert(he.vertex());
 		REM_NLD->insert(he.next().index);
 		visited_vertices.insert(he.next().vertex());
@@ -84,7 +85,6 @@ private:
 		REM_NLD->insert(he.opposite().next().next().index);
 
 		visited_edges = *REM_NLD;
-		visited_edges.insert(he.edge_index());
 
 		for(uint32_t v:visited_vertices)
 			traverse_1_ring(v, [&](const half_edge& h)						// 下面的是传给tranverse_1_ring的函数
