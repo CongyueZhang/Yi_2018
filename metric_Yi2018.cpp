@@ -212,7 +212,6 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 
 	// ②
 	// 将即将被collapse的Halfedges的data保存下来
-	// 新想法：除了delete掉的halfedge，射入to_remove的halfedge也变了
 
 	// 在collapse前把原data存下来
 	//------------------------------------------
@@ -250,7 +249,7 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	bool validity = true;
 	for (uint32_t index: half_edges_index)
 	{
-		if (!connectivity->half_edges[index].is_valid())	continue;		//说明该边已经被删除
+		if (!connectivity->handle(index).is_valid())	continue;		//说明该边已经被删除
 		
 		if (visited_edges.count(index) == 0)
 		{

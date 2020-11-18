@@ -365,14 +365,13 @@ void half_edge_connectivity::flip_edge(uint32_t he)
 
 /// Collapse the half edge \p he; no verification made, undefined behaviour if !valid_collapse_edge
 // Return the index of removed half edges (which will all be invalid following this operation).
-// todo: 将所有变换了的halfedge的data都保存下来
 std::array<uint32_t, 6> half_edge_connectivity::collapse_edge(uint32_t he)
 {
 	// Change vertex of all half-edges from 'to_remove' to 'to_keep'
 	half_edge h = handle(he);
-	const uint32_t to_keep = h.vertex(), to_remove = h.next().next().vertex();   //keep的是he指向的vertex，remove掉的是he射出的vertex
-	h = handle(vertex_to_half_edge[to_remove]);		// 从to_remove这个vertex射出的一个halfedge
-	const uint32_t loop_h = h.index;	// 起始的index
+	const uint32_t to_keep = h.vertex(), to_remove = h.next().next().vertex();  // keep的是he指向的vertex，remove掉的是he射出的vertex
+	h = handle(vertex_to_half_edge[to_remove]);									// 从to_remove这个vertex*射出*的一个halfedge
+	const uint32_t loop_h = h.index;	// 循环起始的index
 
 	// 将所有射入 to_remove 的halfedge 的 vertex 改成 to_keep
 	do                              

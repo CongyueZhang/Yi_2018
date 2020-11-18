@@ -34,7 +34,7 @@ struct k_ring
 		if (ci_equal(option, "edge_ring"))
 			store_edge_ring(v);
 		else if(ci_equal(option, "vertex_ring"))
-			store_2_ring(2, v);
+			store_2_ring(v);
 	}
 
 	template<typename F>
@@ -46,28 +46,29 @@ struct k_ring
 	}
 
 private:
-	void store_2_ring(unsigned int k, uint32_t v)
+	void store_2_ring(uint32_t v)
 	{
-		if (k == 0) return;
-		visited_vertices.insert(v);
-		traverse_1_ring(v, [&](const half_edge& h)						// 下面的是传给tranverse_1_ring的函数
+		traverse_1_ring(v, [&](const half_edge& h)
 			{
 				if (visited_edges.count(h.index) == 0)
 				{
-					if (k == 2)
-						REM_NLD->insert(h.edge_index());
-					else if (k == 1)
-					{
-						if(h.opposite().vertex()==v)				// 外圈需要更新的是射出的halfedge 
-							REM->insert(h.index);
-					}
+					REM_NLD->insert(h.index);
+					visited_edges.insert(h.index);
+					visited_edges.insert(h.opposite().index);
 				}
-				visited_edges.insert(h.index);
-				visited_edges.insert(h.opposite().index);
-
-				const uint32_t vert = h.vertex();
-				if (k > 1 && visited_vertices.count(vert) == 0) store_2_ring(k - 1, vert);		// 同时迭代v的每一个对侧点
+				visited_vertices.insert(h.vertex());
 			});
+
+		visited_vertices.erase(v);
+
+		for (uint32_t v2visite : visited_vertices)
+		{
+			traverse_1_ring(v2visite, [&](const half_edge& h)
+				{
+					if (visited_edges.count(h.index) == 0 && h.opposite().vertex() == v2visite)				// 外圈需要更新的是射出的halfedge 
+						REM->insert(h.index);
+				});
+		}
 	}
 
 	void store_edge_ring(uint32_t h)

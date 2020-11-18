@@ -78,7 +78,9 @@ namespace detail
 		void clear()
 		{
 			num_total = 0;
-			num_collapse = 0, num_split = 0, num_flip = 0;
+			num_collapse = 0;
+			num_split = 0;
+			num_flip = 0;
 			num_vertices = 0;
 		}
 	};

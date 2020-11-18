@@ -245,7 +245,7 @@ void reduction::process_he(const half_edge& he)
 	if (he.is_valid())
 	{
 		bool he_delaunay_valid = metric.delaunay_valid(he.index);
-		if (he_delaunay_valid && metric.flip_valid(he.index))										/// 如果不是delaunay_valid，能flip先flip，不能进行collapse/split
+		if (!he_delaunay_valid && metric.flip_valid(he.index))										/// 如果不是delaunay_valid，能flip先flip，不能进行collapse/split
 			perform_flip(he);
 		else
 		{
@@ -277,6 +277,17 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		candidatesNLD._delete(h);
 	}
 
+	if (stats.num_total == 4609)
+	{
+		mesh Mesh1;
+		Mesh1.vertices = obj.vertices;
+		connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+		remove_standalone_vertices(Mesh1, connectivity);
+		Mesh1.save("delaunay_test_after_collapse" + std::to_string(stats.num_total) + ".obj");
+		
+		system("pause");
+	}
+
 	for (uint32_t h : REM_NLD2update)
 	{
 		half_edge he = connectivity.handle(h);
@@ -285,26 +296,12 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 			add_collapse(he);
 			add_split(he,metric.delaunay_valid(h));
 		}
-
-		
 	}	
 
 	for (uint32_t h : REM2update)
 	{
 		add_one_collapse(connectivity.handle(h));
 	}
-
-/// 临时debug加的
-/// ----------------------------------------
-// Plot the mesh
-	/*
-	mesh Mesh;
-	Mesh.vertices = obj.vertices;
-	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
-	remove_standalone_vertices(Mesh, connectivity);
-
-	Mesh.save("oneNLD.obj");		
-	*/
 }
 
 /// 先从priority queue中删掉已有的Halfedges
@@ -379,7 +376,9 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 		size_t j = 0;
 		if (i % 2 == 0)								/// odd, E = Es  (因为X坐标从0开始，所以i为even时，对应的是odd)
 		{
-			for (; j < X[i]; ++j)
+			// debug暂时改一下
+			// 原本是 for (; j < X[i]; ++j)
+			for (; j < 4183; ++j)
 			{
 				// 问题： 做第一次operation前是否要判断？？
 				// 解决方案：改成了先判断再操作
@@ -403,7 +402,9 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 
 		if (i % 2 != 0)							/// even, E = Ec
 		{
-			for (; j < X[i]; ++j)
+			// debug暂时改一下
+			// 原本是for (; j < X[i]; ++j)
+			for (; j < 1000; ++j)
 			{
 				if (candidatesNLD.empty())
 				{
