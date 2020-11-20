@@ -325,7 +325,7 @@ void half_edge_connectivity::split_edge_2(uint32_t he, uint32_t new_vertex)
 	// Link to vertices
 	while (new_vertex >= vertex_to_half_edge.size())		// 不断增大vertex_to_half_edge的大小，直到出现new_vertex这个index
 		vertex_to_half_edge.push_back(uint32_t(-1));
-	vertex_to_half_edge[new_vertex] = e[0][1];					
+	vertex_to_half_edge[new_vertex] = e[0][1];
 
 	const uint32_t v = half_edges[p[2]].vertex;
 	if (vertex_to_half_edge[v] == e[3][1]) vertex_to_half_edge[v] = e[1][0];		//更新后，e[3][1]的出射点不再是v
@@ -374,12 +374,12 @@ std::array<uint32_t, 6> half_edge_connectivity::collapse_edge(uint32_t he)
 	const uint32_t loop_h = h.index;	// 循环起始的index
 
 	// 将所有射入 to_remove 的halfedge 的 vertex 改成 to_keep
-	do                              
+	do
 	{
 		h = h.next().next();						// 射入to_remove的halfedge
 		half_edges[h.index].vertex = to_keep;		// 将该halfedge的vertex改成to_keep的
-		h = h.opposite();							
-	} while (h.is_valid() && h.index != loop_h);	
+		h = h.opposite();
+	} while (h.is_valid() && h.index != loop_h);
 	h = handle(he);
 
 	// Edges to delete, adjust the vertex correspondence
@@ -465,7 +465,7 @@ void half_edge_connectivity::collapse_edge_test(uint32_t he)
 	half_edge h = handle(he);
 	// to remove是he射出的，to_keep是射入的
 	// 用.next.next而不用.opposite是为了防止在boundary
-	const uint32_t to_keep = h.vertex(), to_remove = h.next().next().vertex();   
+	const uint32_t to_keep = h.vertex(), to_remove = h.next().next().vertex();
 	h = handle(vertex_to_half_edge[to_remove]);		// 从to_remove这个vertex射出的一个halfedge
 	const uint32_t loop_h = h.index;	// 起始的index
 
@@ -525,7 +525,7 @@ void half_edge_connectivity::collapse_edge_test(uint32_t he)
 	// Deallocate edges
 	for (uint32_t t = 0; t < 6; t++)
 	{
-		if (to_delete[t] != uint32_t(-1))		
+		if (to_delete[t] != uint32_t(-1))
 			half_edges[to_delete[t]] = half_edge_data();
 	}
 }

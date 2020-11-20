@@ -271,13 +271,30 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 
 	stats.on_operation(Collapse);
 
+	if (stats.num_total == 4968)
+	{
+		half_edge he_opp = he.opposite();
+		half_edge he_opp_next = he.opposite().next();
+		half_edge he_opp_next_opp = he.opposite().next().opposite();
+		half_edge he_opp_next_opp_next = he.opposite().next().opposite().next();
+		half_edge he_opp_next_opp_next_next = he.opposite().next().opposite().next().next();
+		half_edge he_opp_next_opp_next_next_opposite = he.opposite().next().opposite().next().next().opposite();
+		half_edge he_opp_next_opp_next_opp = he.opposite().next().opposite().next().opposite();
+		half_edge he_opp_next_opp_next_opp_next = he.opposite().next().opposite().next().opposite().next();
+		half_edge he_opp_next_opp_next_opp_next_next = he.opposite().next().opposite().next().opposite().next().next();
+		half_edge he_opp_next_opp_next_opp_next_next_opp = he.opposite().next().opposite().next().opposite().next().next().opposite();
+		half_edge he_opp_next_opp_next_opp_next_next_opp_next = he.opposite().next().opposite().next().opposite().next().next().opposite().next();
+		half_edge he_opp_next_opp_next_opp_next_next_opp_next_next = he.opposite().next().opposite().next().opposite().next().next().opposite().next().next();
+		int temp = 1;
+	}
+
 	for (uint32_t h : connectivity.collapse_edge(c.index))				/// connectivity.collapse_edge()返回的是 index of removed half edges
 	{
 		candidatesREM._delete(h);										/// 从priority queue中移除这些删掉了的边
 		candidatesNLD._delete(h);
 	}
 
-	if (stats.num_total == 4609)
+	if (stats.num_total == 4969)
 	{
 		mesh Mesh1;
 		Mesh1.vertices = obj.vertices;
@@ -285,6 +302,7 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		remove_standalone_vertices(Mesh1, connectivity);
 		Mesh1.save("delaunay_test_after_collapse" + std::to_string(stats.num_total) + ".obj");
 		
+		std::cout << "num_total = " << std::to_string(stats.num_total) << std::endl;
 		system("pause");
 	}
 

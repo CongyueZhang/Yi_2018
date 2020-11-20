@@ -101,4 +101,5 @@ void get_edge_2_ring(const half_edge_connectivity& connectivity, const std::vect
 /// return the angle between two vectors (»¡¶È
 double getAngle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2);
 std::pair<double, double> opp_angle(const mesh& obj, const half_edge_connectivity& connectivity, uint32_t h_index);
+bool silver_test(const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& c);
 

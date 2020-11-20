@@ -61,7 +61,7 @@ mesh evolution_stream(mesh& obj, const size_t& target_num_vertices, const size_t
 		auto [Mesh_i, S_i] = _reduction.reduce_stream(Xk1.row(j));
 
 		/// Todo: 保证进行完一次reduce_stream后，obj还和原来一样
-		if (S_i[1] == -1)
+		if (S_i[0] == -1)
 			Dk1[j] = std::numeric_limits<double>::infinity();
 		else
 			igl::hausdorff(Mesh_i.matrix_vertices(), Mesh_i.matrix_triangles(), obj.matrix_vertices(), obj.matrix_triangles(), Dk1[j]);

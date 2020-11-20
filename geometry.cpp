@@ -281,14 +281,14 @@ void get_edge_2_ring(const half_edge_connectivity& connectivity, const std::vect
 
 /// 自己加的---------------------------------------------
 /// 求两个vector的夹角 （弧度
-///------------------------------------------------------------
+///------------------------------------------------------------------
 double getAngle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2)
 {
-	return std::abs(std::acos(v1.normalized().dot(v2.normalized())));			
+	return std::abs(std::acos(v1.normalized().dot(v2.normalized())));
 }
 
 /// 找edge的对角
-/// -----------------------------------------------------------------------
+/// -------------------------------------------------------------------------------------------------------------
 std::pair<double, double> opp_angle(const mesh& obj, const half_edge_connectivity& connectivity, uint32_t h_index)
 {
 	double angle1, angle2;									// angle1和angle2是radians
@@ -298,4 +298,12 @@ std::pair<double, double> opp_angle(const mesh& obj, const half_edge_connectivit
 	angle1 = getAngle(obj.vertices[h.vertex()] - obj.vertices[h.next().vertex()], obj.vertices[h.next().next().vertex()] - obj.vertices[h.next().vertex()]);
 	angle2 = getAngle(obj.vertices[g.vertex()] - obj.vertices[g.next().vertex()], obj.vertices[g.next().next().vertex()] - obj.vertices[g.next().vertex()]);
 	return { angle1, angle2 };
+}
+
+/// 测试是否出现silver triangle
+/// 返回 true 是通过测试（不是silver triangle
+/// ------------------------------------------------------------------------------------------
+bool silver_test(const Eigen::Vector3d& a, const Eigen::Vector3d& b, const Eigen::Vector3d& c)
+{
+	return getAngle(b - a, c - a) != 0;
 }

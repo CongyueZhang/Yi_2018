@@ -19,7 +19,7 @@ struct k_ring
 	{
 		if (ci_equal(option, "edge"))
 			traverse_k_ring_edge(k, v, f);
-		else if(ci_equal(option, "halfedge"))
+		else if (ci_equal(option, "halfedge"))
 			traverse_k_ring(k, v, f);
 		REM = NULL;
 		REM_NLD = NULL;
@@ -33,7 +33,7 @@ struct k_ring
 
 		if (ci_equal(option, "edge_ring"))
 			store_edge_ring(v);
-		else if(ci_equal(option, "vertex_ring"))
+		else if (ci_equal(option, "vertex_ring"))
 			store_2_ring(v);
 	}
 
@@ -87,7 +87,7 @@ private:
 
 		visited_edges = *REM_NLD;
 
-		for(uint32_t v:visited_vertices)
+		for (uint32_t v : visited_vertices)
 			traverse_1_ring(v, [&](const half_edge& h)						// 下面的是传给tranverse_1_ring的函数
 				{
 					if (visited_edges.count(h.index) == 0 && visited_edges.count(h.opposite().index) == 0)
@@ -102,16 +102,16 @@ private:
 	template<typename F>
 	void traverse_k_ring(unsigned int k, uint32_t v, F f)
 	{
-		if(k == 0) return;
+		if (k == 0) return;
 		visited_vertices.insert(v);
 		traverse_1_ring(v, [&](const half_edge& h)				// 下面的是传给tranverse_1_ring的函数
-		{
-			if(visited_edges.count(h.index) == 0) f(h);			// 防止重复访问某个Halfedge
-			visited_edges.insert(h.index);
+			{
+				if (visited_edges.count(h.index) == 0) f(h);			// 防止重复访问某个Halfedge
+				visited_edges.insert(h.index);
 
-			const uint32_t vert = h.vertex();					
-			if(k > 1 && visited_vertices.count(vert) == 0) traverse_k_ring(k - 1, vert, f);		// 同时迭代v的每一个对侧点
-		});
+				const uint32_t vert = h.vertex();
+				if (k > 1 && visited_vertices.count(vert) == 0) traverse_k_ring(k - 1, vert, f);		// 同时迭代v的每一个对侧点
+			});
 	}
 
 	/// 自己加的
@@ -137,9 +137,9 @@ private:
 	{
 		half_edge h = connectivity.handle(connectivity.vertex_half_edge(v));
 		uint32_t start = uint32_t(-1);
-		while(h.index != start && h.is_valid())
+		while (h.index != start && h.is_valid())
 		{
-			if(start == uint32_t(-1)) start = h.index;
+			if (start == uint32_t(-1)) start = h.index;
 			f(h);
 			f(h = h.next());
 			f(h = h.next());
@@ -151,8 +151,8 @@ private:
 	std::unordered_set<uint32_t> visited_edges;
 	std::unordered_set<uint32_t> visited_vertices;
 
-	std::unordered_set<uint32_t> *REM;
-	std::unordered_set<uint32_t> *REM_NLD;
+	std::unordered_set<uint32_t>* REM;
+	std::unordered_set<uint32_t>* REM_NLD;
 
 	const half_edge_connectivity& connectivity;
 };
