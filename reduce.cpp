@@ -76,16 +76,16 @@ void reduction::Liu_perform_split(const detail::candidate_operation& c)
 	connectivity.split_edge(h.index, vertex_index);				
 	stats.on_operation(Split);
 
-	/*
+	
 	// 临时debug加的
 	// ------------------------
 	mesh Mesh1;
 	Mesh1.vertices = obj.vertices;
 	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 	remove_standalone_vertices(Mesh1, connectivity);
-	Mesh1.save("delaunay_test_split" + std::to_string(stats.num_split) + "_REM" + std::to_string(candidatesNLD.size()) + ".obj");	
+	Mesh1.save("delaunay_test_split" + std::to_string(stats.num_split) + "_NLD" + std::to_string(candidatesNLD.size()) + ".obj");	
 	// ------------------------	
-	*/
+	
 
 
 	/*
@@ -271,6 +271,7 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 
 	stats.on_operation(Collapse);
 
+	/*
 	if (stats.num_total == 4968)
 	{
 		half_edge he_opp = he.opposite();
@@ -286,7 +287,8 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		half_edge he_opp_next_opp_next_opp_next_next_opp_next = he.opposite().next().opposite().next().opposite().next().next().opposite().next();
 		half_edge he_opp_next_opp_next_opp_next_next_opp_next_next = he.opposite().next().opposite().next().opposite().next().next().opposite().next().next();
 		int temp = 1;
-	}
+	}	
+	*/
 
 	for (uint32_t h : connectivity.collapse_edge(c.index))				/// connectivity.collapse_edge()返回的是 index of removed half edges
 	{
@@ -294,6 +296,7 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		candidatesNLD._delete(h);
 	}
 
+	/*
 	if (stats.num_total == 4969)
 	{
 		mesh Mesh1;
@@ -304,7 +307,9 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		
 		std::cout << "num_total = " << std::to_string(stats.num_total) << std::endl;
 		system("pause");
-	}
+	}	
+	*/
+
 
 	for (uint32_t h : REM_NLD2update)
 	{
@@ -394,9 +399,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 		size_t j = 0;
 		if (i % 2 == 0)								/// odd, E = Es  (因为X坐标从0开始，所以i为even时，对应的是odd)
 		{
-			// debug暂时改一下
-			// 原本是 for (; j < X[i]; ++j)
-			for (; j < 4183; ++j)
+			for (; j < X[i]; ++j)
 			{
 				// 问题： 做第一次operation前是否要判断？？
 				// 解决方案：改成了先判断再操作
@@ -420,9 +423,8 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 
 		if (i % 2 != 0)							/// even, E = Ec
 		{
-			// debug暂时改一下
-			// 原本是for (; j < X[i]; ++j)
-			for (; j < 1000; ++j)
+
+			for (; j < X[i]; ++j)
 			{
 				if (candidatesNLD.empty())
 				{

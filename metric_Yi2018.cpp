@@ -87,6 +87,11 @@ void metric_Yi2018::setup(const mesh& object, half_edge_connectivity& connec)
 bool metric_Yi2018::delaunay_valid(uint32_t h_index) const
 {
 	auto [angle1, angle2] = opp_angle(*obj, *connectivity, h_index);
+	// 检测sliver
+	if (angle1 < 0.01 || angle2 < 0.01 || std::isnan(angle1) || std::isnan(angle2))
+	{
+		return false;
+	}
 	if (angle1 + angle2 > M_PI)
 	{
 		return false;
@@ -253,14 +258,6 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 		
 		if (visited_edges.count(index) == 0)
 		{
-			// 检测sliver
-			auto [angle1, angle2] = opp_angle(*obj, *connectivity, index);
-			if (angle1 < 0.01 || angle2 < 0.01 || std::isnan(angle1) || std::isnan(angle2))
-			{
-				validity = false;
-				break;
-			}
-
 			/// 检测这个he是否是delaunay的
 			if (!(delaunay_valid(index)))
 			{
