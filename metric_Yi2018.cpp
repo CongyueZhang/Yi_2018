@@ -88,7 +88,7 @@ bool metric_Yi2018::delaunay_valid(uint32_t h_index) const
 {
 	auto [angle1, angle2] = opp_angle(*obj, *connectivity, h_index);
 	// 检测sliver
-	if (angle1 < 0.01 || angle2 < 0.01 || std::isnan(angle1) || std::isnan(angle2))
+	if (angle1 == 0 || angle2 == 0 || std::isnan(angle1) || std::isnan(angle2))
 	{
 		return false;
 	}
@@ -226,6 +226,10 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	half_edge he = connectivity->handle(h_index);							// he: v -> v'   v是to_remove
 	std::unordered_set<uint32_t> visited_edges;
 	uint32_t start = uint32_t(-1);
+
+	// Eigen::Vector3d last_crossDir(0,0,0), p1, p2, v1(0, 0, 0), v2;
+	std::unordered_map<uint32_t, Eigen::Vector3d> normals;					// 将每个射出向量所在三角形的法向量保存进去		
+
 	while (he.is_valid() && he.index != start)								// 遍历v的one ring
 	{
 		if (start == uint32_t(-1)) 
@@ -234,11 +238,36 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 		half_edges_data.push_back(connectivity->half_edges[he.index]);		
 		half_edges_index.push_back(he.index);
 
+		// p1 = obj->vertices[he.vertex()];
+		normals[he.index] = ((obj->vertices[he.next().vertex()] - obj->vertices[he.vertex()]).cross(obj->vertices[he.vertex()] - obj->vertices[he.opposite().vertex()])).normalized();
+
 		he = he.next();
 
 		half_edges_data.push_back(connectivity->half_edges[he.index]);		
 		half_edges_index.push_back(he.index);
 
+		// p2 = obj->vertices[he.vertex()];
+
+		/*
+		if (v1.norm() == 0)
+			v1 = p2 - p1;
+		else
+		{
+			v2 = p2 - p1;
+			if (last_crossDir.norm() == 0)
+				last_crossDir = v2.cross(v1);
+			else
+			{
+				Eigen::Vector3d crossDir = v2.cross(v1);
+				if (crossDir.dot(last_crossDir) < 0)
+					return false;
+				else
+					last_crossDir = crossDir;
+			}
+			v1 = v2;
+		}
+		*/
+	
 		he = he.next();
 
 		half_edges_data.push_back(connectivity->half_edges[he.index]);		
@@ -252,10 +281,26 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	// 检测collapse后是否满足条件
 	// ------------------------
 	bool validity = true;
+
+	// 先检测有没有发生invertion
+	for (auto& nv : normals)
+	{
+		if (!connectivity->handle(nv.first).is_valid())	continue;
+		he = connectivity->handle(nv.first);
+		Eigen::Vector3d normal_vector = ((obj->vertices[he.next().vertex()] - obj->vertices[he.vertex()]).cross(obj->vertices[he.vertex()]) - obj->vertices[he.opposite().vertex()]).normalized();
+		if (normal_vector.dot(nv.second) < 0)
+		{
+			validity = false;
+			break;
+		}
+	}
+
+	// 检测是否是delaunay的
+	if (validity)
 	for (uint32_t index: half_edges_index)
 	{
 		if (!connectivity->handle(index).is_valid())	continue;		//说明该边已经被删除
-		
+
 		if (visited_edges.count(index) == 0)
 		{
 			/// 检测这个he是否是delaunay的

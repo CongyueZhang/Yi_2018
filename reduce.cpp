@@ -10,6 +10,8 @@
 #include <execution>
 #include<math.h>
 #include <iostream>
+#include <time.h>
+#include <string.h>
 
 void remove_standalone_vertices(mesh& obj, const half_edge_connectivity& connectivity)
 {
@@ -76,21 +78,18 @@ void reduction::Liu_perform_split(const detail::candidate_operation& c)
 	connectivity.split_edge(h.index, vertex_index);				
 	stats.on_operation(Split);
 
-	
-	// 临时debug加的
+	/*
+	/// debug
+	/// -----------------------------------------
+		// 临时debug加的
 	// ------------------------
 	mesh Mesh1;
 	Mesh1.vertices = obj.vertices;
 	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
 	remove_standalone_vertices(Mesh1, connectivity);
-	Mesh1.save("delaunay_test_split" + std::to_string(stats.num_split) + "_NLD" + std::to_string(candidatesNLD.size()) + ".obj");	
-	// ------------------------	
-	
+	Mesh1.save("delaunay_test_split" + std::to_string(stats.num_split) + "_NLD" + std::to_string(candidatesNLD.size()) + ".obj");
+	// ------------------------
 
-
-	/*
-	/// debug
-	/// -----------------------------------------
 	// Plot the mesh
 	mesh Mesh1;
 	Mesh1.vertices = obj.vertices;
@@ -103,7 +102,7 @@ void reduction::Liu_perform_split(const detail::candidate_operation& c)
 	/// -----------------------------------------
 	*/
 
-	/// update neightbourhood
+	/// update neighborhoods
 	std::unordered_set<uint32_t> he2update;
 	const char* option = "edge";
 	k_ring(connectivity, 1, option, vertex_index, [&](half_edge he) {
@@ -295,9 +294,9 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		candidatesREM._delete(h);										/// 从priority queue中移除这些删掉了的边
 		candidatesNLD._delete(h);
 	}
-
+	
 	/*
-	if (stats.num_total == 4969)
+	if (stats.num_total >= 7650)
 	{
 		mesh Mesh1;
 		Mesh1.vertices = obj.vertices;
@@ -307,9 +306,8 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		
 		std::cout << "num_total = " << std::to_string(stats.num_total) << std::endl;
 		system("pause");
-	}	
+	}		
 	*/
-
 
 	for (uint32_t h : REM_NLD2update)
 	{
@@ -399,7 +397,9 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 		size_t j = 0;
 		if (i % 2 == 0)								/// odd, E = Es  (因为X坐标从0开始，所以i为even时，对应的是odd)
 		{
-			for (; j < X[i]; ++j)
+			// 临时debug加的
+			// for (; j < X[i]; ++j)
+			for (; j < 6599; ++j)
 			{
 				// 问题： 做第一次operation前是否要判断？？
 				// 解决方案：改成了先判断再操作
@@ -412,7 +412,8 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 				if (stats.num_split >= nLiu)
 				{
 					// set S(x) = Sdummy and return 空集
-					S.resize(1, -1);
+					S.resize(1);
+					S[0] = -1;
 					return { Mesh, S };			// dummy
 				}
 
@@ -423,10 +424,16 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 
 		if (i % 2 != 0)							/// even, E = Ec
 		{
-
-			for (; j < X[i]; ++j)
+			// 临时debug改的
+			// for (; j < X[i]; ++j)
+			for (; j < 500; ++j)
 			{
 				if (candidatesNLD.empty())
+				{
+					_skip = true;
+					break;
+				}
+				if (stats.num_vertices == target_num_vertices)
 				{
 					_skip = true;
 					break;
@@ -435,7 +442,8 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 				{
 					_skip = true;
 					// set S(x) = Sdummy and return 空集
-					S.resize(1, -1);
+					S.resize(1);
+					S[0] = -1;
 					return { Mesh, S };			// dummy
 				}
 
@@ -445,14 +453,14 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 		}
 
 		if (_skip)
-			S.push_back(j);
+			S.push_back(j-1);
 		else
-			S.push_back(j+1);		/// 因为j本来是index，比实际次数少1
+			S.push_back(j);		/// 因为j本来是index，比实际次数少1
 
 		if (candidatesNLD.empty())
 		{
 			size_t num_collap = 0;
-			while (!candidatesREM.empty() && stats.num_vertices != target_num_vertices)			// TODO：这里好像有问题，好像是跳过了==？
+			while (!candidatesREM.empty() && stats.num_vertices > target_num_vertices)			// TODO：这里好像有问题，好像是跳过了==？
 			{
 				++num_collap;
 				const detail::candidate_operation c = candidatesREM.pop();
@@ -461,7 +469,8 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 			
 			if (stats.num_vertices != target_num_vertices)
 			{
-				S.resize(1, -1);
+				S.resize(1);
+				S[0] = -1;
 				return { Mesh, S };				// dummy
 			}
 
@@ -485,11 +494,12 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 			connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });		
 			remove_standalone_vertices(Mesh1, connectivity);
 
-			Mesh1.save("test.obj");
+			Mesh1.save("test" + std::to_string(clock()) + ".obj");
 
 			return { Mesh, S };
 		}
 	}
-	S.resize(1, -1);
+	S.resize(1);
+	S[0] = -1;
 	return { Mesh, S };
 }

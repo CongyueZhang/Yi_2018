@@ -91,7 +91,7 @@ bool half_edge_connectivity::is_connected(uint32_t u, uint32_t v) const
 	return false;
 }
 
-/// Return joint neighbours of \p u and \p v
+/// Return joint neighbors of \p u and \p v
 std::vector<uint32_t> half_edge_connectivity::joint_neighbours(uint32_t u, uint32_t v) const
 {
 	std::vector<uint32_t> n = vertex_ring(u).to_vector();
