@@ -236,7 +236,6 @@ void reduction::perform_flip(const half_edge& he)								/// 更新flip后的边及其n
 		if(h.is_valid())
 			add_one_collapse(h);
 	}
-		
 }
 
 void reduction::process_he(const half_edge& he)
@@ -308,7 +307,7 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 		system("pause");
 	}		
 	*/
-
+	
 	for (uint32_t h : REM_NLD2update)
 	{
 		half_edge he = connectivity.handle(h);
@@ -343,7 +342,7 @@ void reduction::perform_split(const detail::candidate_operation& c)
 
 	stats.on_operation(Split);
 
-	/// update neightbourhood
+	/// update neighborhoods
 	std::unordered_set<uint32_t> REM2update;
 	std::unordered_set<uint32_t> REM_NLD2update;
 	const char* option = "vertex_ring";
@@ -398,8 +397,8 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 		if (i % 2 == 0)								/// odd, E = Es  (因为X坐标从0开始，所以i为even时，对应的是odd)
 		{
 			// 临时debug加的
-			// for (; j < X[i]; ++j)
-			for (; j < 6599; ++j)
+			// for (; j < 6599; ++j)
+			for (; j < X[i]; ++j)
 			{
 				// 问题： 做第一次operation前是否要判断？？
 				// 解决方案：改成了先判断再操作
@@ -425,8 +424,8 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 		if (i % 2 != 0)							/// even, E = Ec
 		{
 			// 临时debug改的
-			// for (; j < X[i]; ++j)
-			for (; j < 500; ++j)
+			// for (; j < 500; ++j)
+			for (; j < X[i]; ++j)
 			{
 				if (candidatesNLD.empty())
 				{

@@ -224,11 +224,16 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	std::vector<uint32_t> half_edges_index;
 
 	half_edge he = connectivity->handle(h_index);							// he: v -> v'   v是to_remove
+	uint32_t to_remove = he.opposite().vertex();
 	std::unordered_set<uint32_t> visited_edges;
 	uint32_t start = uint32_t(-1);
 
-	// Eigen::Vector3d last_crossDir(0,0,0), p1, p2, v1(0, 0, 0), v2;
-	std::unordered_map<uint32_t, Eigen::Vector3d> normals;					// 将每个射出向量所在三角形的法向量保存进去		
+	// 1. Eigen::Vector3d last_crossDir(0,0,0), p1, p2, v1(0, 0, 0), v2;
+	
+	// 2. std::unordered_map<uint32_t, Eigen::Vector3d> normals;					// 将每个射出向量所在三角形的法向量保存进去		
+
+	// 3.
+	std::vector<uint32_t> polygon_vertices;
 
 	while (he.is_valid() && he.index != start)								// 遍历v的one ring
 	{
@@ -238,17 +243,21 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 		half_edges_data.push_back(connectivity->half_edges[he.index]);		
 		half_edges_index.push_back(he.index);
 
-		// p1 = obj->vertices[he.vertex()];
-		normals[he.index] = ((obj->vertices[he.next().vertex()] - obj->vertices[he.vertex()]).cross(obj->vertices[he.vertex()] - obj->vertices[he.opposite().vertex()])).normalized();
+		// 1. p1 = obj->vertices[he.vertex()];
+		
+		// 2. normals[he.index] = ((obj->vertices[he.next().vertex()] - obj->vertices[he.vertex()]).cross(obj->vertices[he.vertex()] - obj->vertices[he.opposite().vertex()])).normalized();
+
+		// 3.
+		polygon_vertices.push_back(he.vertex());
 
 		he = he.next();
 
 		half_edges_data.push_back(connectivity->half_edges[he.index]);		
 		half_edges_index.push_back(he.index);
 
-		// p2 = obj->vertices[he.vertex()];
-
 		/*
+		* 1. 通过判断包络前后两对向量的corss vectors方向的变化
+		p2 = obj->vertices[he.vertex()];
 		if (v1.norm() == 0)
 			v1 = p2 - p1;
 		else
@@ -276,13 +285,35 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 		he = he.opposite();
 	}
 
+	// 检测内角和
+	int n = polygon_vertices.size();
+	for (int i = 0; i < n; ++i)
+	{
+		Eigen::Vector3d e0, e1, e2;
+		double _angle1, _angle2, _angle;
+		uint32_t index0 = i-1, index1 = i, index2 = i+1;
+		if (i == 0)
+			index0 = n - 1;
+		else if (i == n - 1)
+			index2 = 0;
+		e0 = obj->vertices[polygon_vertices[index0]] - obj->vertices[polygon_vertices[index1]];
+		e2 = obj->vertices[polygon_vertices[index2]] - obj->vertices[polygon_vertices[index1]];
+		e1 = obj->vertices[to_remove] - obj->vertices[polygon_vertices[index1]];
+		_angle = getAngle(e0, e2);
+		_angle1 = getAngle(e0, e1);
+		_angle2 = getAngle(e1, e2);
+		if (_angle1 + _angle2 > M_PI)
+			return false;
+	}
+
 	connectivity->collapse_edge_test(h_index);
 	
 	// 检测collapse后是否满足条件
 	// ------------------------
 	bool validity = true;
 
-	// 先检测有没有发生invertion
+	/*
+	* 2. 通过collapse前后normal变化的角度来判断 
 	for (auto& nv : normals)
 	{
 		if (!connectivity->handle(nv.first).is_valid())	continue;
@@ -294,6 +325,7 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 			break;
 		}
 	}
+	*/
 
 	// 检测是否是delaunay的
 	if (validity)
