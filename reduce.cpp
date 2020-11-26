@@ -78,22 +78,22 @@ void reduction::Liu_perform_split(const detail::candidate_operation& c)
 	connectivity.split_edge(h.index, vertex_index);				
 	stats.on_operation(Split);
 
-	/*
+	
 	/// debug
 	/// -----------------------------------------
 		// 临时debug加的
 	// ------------------------
 	mesh Mesh1;
 	Mesh1.vertices = obj.vertices;
-	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			
 	remove_standalone_vertices(Mesh1, connectivity);
 	Mesh1.save("delaunay_test_split" + std::to_string(stats.num_split) + "_NLD" + std::to_string(candidatesNLD.size()) + ".obj");
 	// ------------------------
-
+	/*
 	// Plot the mesh
 	mesh Mesh1;
 	Mesh1.vertices = obj.vertices;
-	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+	connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });		
 	remove_standalone_vertices(Mesh1, connectivity);
 	igl::opengl::glfw::Viewer viewer;
 	viewer.data().set_mesh(Mesh1.matrix_vertices(), Mesh1.matrix_triangles());
@@ -208,7 +208,7 @@ void reduction::add_split(const half_edge& he, const bool& he_delaunay_valid)
 	candidatesNLD.push(c);
 }
 
-void reduction::perform_flip(const half_edge& he)								/// 更新flip后的边及其neighbour
+void reduction::perform_flip(const half_edge& he)							/// 更新flip后的边及其neighbour
 {
 	connectivity.flip_edge(he.index);
 
@@ -255,7 +255,7 @@ void reduction::process_he(const half_edge& he)
 
 void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从pirority queue中移除掉删掉了的halfedges，并更新周围的neighbour
 {
-	half_edge he = connectivity.handle(c.index);						/// he是从要移除的点出射的
+	half_edge he = connectivity.handle(c.index);								/// he: to_remove -> to_keep
 	uint32_t to_keep = he.vertex();
 	
 	/// 将需要更新的halfedge的坐标存起来
@@ -348,7 +348,7 @@ void reduction::perform_split(const detail::candidate_operation& c)
 	const char* option = "vertex_ring";
 	k_ring(connectivity, option, REM2update, REM_NLD2update, vertex_index);
 
-	for (uint32_t h : REM_NLD2update)					// 不能在traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
+	for (uint32_t h : REM_NLD2update)					/// 不能在traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
 		process_he(connectivity.handle(h));
 
 	for (uint32_t h : REM2update)
@@ -360,7 +360,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 	stats.clear();
 	stats.num_vertices = ini_num_vertices;
 
-	/// delete connectivity;			///TODO: 确认一下是否需要主动释放空间
+	/// delete connectivity;							///TODO: 确认一下是否需要主动释放空间
 	obj.vertices.resize(ini_num_vertices);
 	obj.vertices = ori_vertices;
 	connectivity = obj.half_edges();
@@ -383,7 +383,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 	}
 
 	/// Algorithm2
-	/// 问题 S是做什么用的？返回后好像没用到？？
+	/// 问题 S返回后好像没用到？？
 	/// ----------------------------------------
 	std::vector<size_t> S;
 	bool _skip = false;
@@ -400,9 +400,6 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 			// for (; j < 6599; ++j)
 			for (; j < X[i]; ++j)
 			{
-				// 问题： 做第一次operation前是否要判断？？
-				// 解决方案：改成了先判断再操作
-
 				if (candidatesNLD.empty())
 				{
 					_skip = true;
@@ -424,7 +421,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 		if (i % 2 != 0)							/// even, E = Ec
 		{
 			// 临时debug改的
-			// for (; j < 500; ++j)
+		    // for (; j < 500; ++j)
 			for (; j < X[i]; ++j)
 			{
 				if (candidatesNLD.empty())

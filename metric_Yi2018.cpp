@@ -1,5 +1,6 @@
 #include "metric_Yi2018.h"
 #include "geometry.h"
+#include "traversal.h"
 #include <corecrt_math_defines.h>
 
 #include <CGAL/Circle_3.h>
@@ -46,35 +47,12 @@ double intersec_l_c(const Eigen::Vector3d& p1, const Eigen::Vector3d& p2, const 
 	Eigen::Vector3d center((c.center()).x(), (c.center()).y(), (c.center()).z());
 
 	Eigen::Vector3d dir = (b - a).normalized();			// dir是direction，即a->b的方向向量
-	Eigen::Vector3d a2c = center - a;			// a指向center的向量
+	Eigen::Vector3d a2c = center - a;					// a指向center的向量
 
 	double I = 2 * a2c.dot(dir);
 
 	return I;					// return的是I的长度
 }
-
-/*
-/// sample交点几何
-/// input: segment的两个端点a, b
-/// output: sample这个segment的点集合
-std::unordered_set<Eigen::Vector3d> segmentSet(const Eigen::Vector3d a, const Eigen::Vector3d b)
-{
-	Eigen::Vector3d segment = b - a;
-	double t = segment.norm();
-	Eigen::Vector3d d = segment / t;		//d是direction
-
-	std::vector<Eigen::Vector3d> r(20);
-	for (int i = 0; i < 20; i++)
-	{
-		r[i] = a + i*t/20*d;
-	}
-
-	std::unordered_set<Eigen::Vector3d> s(r.begin(), r.end());
-
-	return s;
-}
-*/
-
 
 void metric_Yi2018::setup(const mesh& object, half_edge_connectivity& connec)
 {
@@ -118,7 +96,7 @@ std::pair<double, Eigen::Vector3d> metric_Yi2018::split_position(const half_edge
 	// 以a->b建立数轴，a为原点，坐标为0；b坐标为ab向量的长度
 	pa = 0;
 	pb = (b - a).norm();
-	pI0_1 = intersec_l_c(c, d, a, a, b);				//靠近a点的
+	pI0_1 = intersec_l_c(c, d, a, a, b);					//靠近a点的
 	pI0_2 = pb - intersec_l_c(c, d, b, b, a);				//靠近b点的
 	pI1 = intersec_l_c(c, D1, a, a, b);
 	pI2 = pb - intersec_l_c(c, D2, b, b, a);
@@ -196,7 +174,7 @@ bool metric_Yi2018::flip_valid(uint32_t h_index) const
 	Eigen::Vector3d n1, n2;
 	const half_edge h = connectivity->handle(h_index);
 
-	const auto [v1, v2] = connectivity->edge_vertices(h_index);		//h是 v1 -> v2
+	const auto [v1, v2] = connectivity->edge_vertices(h_index);		//h: v1 -> v2
 	Eigen::Vector3d h_vector = obj->vertices[v2] - obj->vertices[v1];
 
 	n1 = h_vector.cross(obj->vertices[h.next().vertex()] - obj->vertices[h.vertex()]);
@@ -211,79 +189,23 @@ bool metric_Yi2018::flip_valid(uint32_t h_index) const
 //------------------------------------------------
 bool metric_Yi2018::remove_valid(uint32_t h_index)
 {
-	// 两种方法：
-	// ①将这一部分mesh取出单独进行操作，判断后这一部分mesh丢掉
-	// ②先collapse，然后再split复原
-
-	// ②
-	// 将即将被collapse的Halfedges的data保存下来
-
 	// 在collapse前把原data存下来
 	//------------------------------------------
-	std::vector<half_edge_data> half_edges_data;						
-	std::vector<uint32_t> half_edges_index;
+	std::unordered_map<uint32_t, half_edge_data> to_restore;
 
 	half_edge he = connectivity->handle(h_index);							// he: v -> v'   v是to_remove
 	uint32_t to_remove = he.opposite().vertex();
 	std::unordered_set<uint32_t> visited_edges;
 	uint32_t start = uint32_t(-1);
 
-	// 1. Eigen::Vector3d last_crossDir(0,0,0), p1, p2, v1(0, 0, 0), v2;
-	
-	// 2. std::unordered_map<uint32_t, Eigen::Vector3d> normals;					// 将每个射出向量所在三角形的法向量保存进去		
-
-	// 3.
 	std::vector<uint32_t> polygon_vertices;
 
-	while (he.is_valid() && he.index != start)								// 遍历v的one ring
-	{
-		if (start == uint32_t(-1)) 
-			start = he.index;
-
-		half_edges_data.push_back(connectivity->half_edges[he.index]);		
-		half_edges_index.push_back(he.index);
-
-		// 1. p1 = obj->vertices[he.vertex()];
-		
-		// 2. normals[he.index] = ((obj->vertices[he.next().vertex()] - obj->vertices[he.vertex()]).cross(obj->vertices[he.vertex()] - obj->vertices[he.opposite().vertex()])).normalized();
-
-		// 3.
-		polygon_vertices.push_back(he.vertex());
-
-		he = he.next();
-
-		half_edges_data.push_back(connectivity->half_edges[he.index]);		
-		half_edges_index.push_back(he.index);
-
-		/*
-		* 1. 通过判断包络前后两对向量的corss vectors方向的变化
-		p2 = obj->vertices[he.vertex()];
-		if (v1.norm() == 0)
-			v1 = p2 - p1;
-		else
-		{
-			v2 = p2 - p1;
-			if (last_crossDir.norm() == 0)
-				last_crossDir = v2.cross(v1);
-			else
-			{
-				Eigen::Vector3d crossDir = v2.cross(v1);
-				if (crossDir.dot(last_crossDir) < 0)
-					return false;
-				else
-					last_crossDir = crossDir;
-			}
-			v1 = v2;
-		}
-		*/
-	
-		he = he.next();
-
-		half_edges_data.push_back(connectivity->half_edges[he.index]);		
-		half_edges_index.push_back(he.index);
-
-		he = he.opposite();
-	}
+	const char* option = "halfedge";
+	k_ring(*connectivity, 1, option, to_remove, [&](const half_edge& h) {
+			to_restore[h.index] = (*connectivity).half_edges[h.index];
+			if(h.opposite().vertex() == to_remove)
+				polygon_vertices.push_back(h.vertex());
+		});
 
 	// 检测内角和
 	int n = polygon_vertices.size();
@@ -312,45 +234,30 @@ bool metric_Yi2018::remove_valid(uint32_t h_index)
 	// ------------------------
 	bool validity = true;
 
-	/*
-	* 2. 通过collapse前后normal变化的角度来判断 
-	for (auto& nv : normals)
-	{
-		if (!connectivity->handle(nv.first).is_valid())	continue;
-		he = connectivity->handle(nv.first);
-		Eigen::Vector3d normal_vector = ((obj->vertices[he.next().vertex()] - obj->vertices[he.vertex()]).cross(obj->vertices[he.vertex()]) - obj->vertices[he.opposite().vertex()]).normalized();
-		if (normal_vector.dot(nv.second) < 0)
-		{
-			validity = false;
-			break;
-		}
-	}
-	*/
-
 	// 检测是否是delaunay的
 	if (validity)
-	for (uint32_t index: half_edges_index)
+	for (auto _data: to_restore)
 	{
-		if (!connectivity->handle(index).is_valid())	continue;		//说明该边已经被删除
+		if (!connectivity->handle(_data.first).is_valid())	continue;		//说明该边已经被删除
 
-		if (visited_edges.count(index) == 0)
+		if (visited_edges.count(_data.first) == 0)
 		{
 			/// 检测这个he是否是delaunay的
-			if (!(delaunay_valid(index)))
+			if (!(delaunay_valid(_data.first)))
 			{
 				validity = false;
 				break;
 			}
 		}
-		visited_edges.insert(index);
-		visited_edges.insert(connectivity->handle(index).opposite().index);
+		visited_edges.insert(_data.first);
+		visited_edges.insert(connectivity->handle(_data.first).opposite().index);
 	}
 	
 	/// 用保存的data复原
 	/// -----------------------------------------
-	for (int i = 0; i<half_edges_data.size(); ++i)
+	for (auto _data: to_restore)
 	{
-		connectivity->half_edges[half_edges_index[i]] = half_edges_data[i];
+		connectivity->half_edges[_data.first] = _data.second;
 	}
 
 	return validity;
