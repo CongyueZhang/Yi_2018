@@ -194,7 +194,7 @@ void reduction::add_one_collapse(const half_edge& he)
 
 void reduction::add_split(const half_edge& he, const bool& he_delaunay_valid)
 {
-	// if (he.is_boundary()) return;										/// 暂时去掉，看有没有bug是因为这个
+	if (he.is_boundary()) return;										
 	if (he_delaunay_valid)													/// 如果本身是delaunay的，则不需要split
 	{
 		candidatesNLD._delete(he.index);									/// 该边之前可能是nonDelaunay的，现在变成了delaunay，所以要把NLD中的删除
@@ -227,7 +227,7 @@ void reduction::perform_flip(const half_edge& he)							/// 更新flip后的边及其ne
 	const char* option = "edge_ring";
 	k_ring(connectivity, option, REM2update, REM_NLD2update, he.index);
 
-	for (uint32_t hx : REM_NLD2update)					// 不能再traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
+	for (uint32_t hx : REM_NLD2update)					// 不能在traverse_k_ring_edge中直接更新，因为flip会改变结构，导致回不到start edge
 		process_he(connectivity.handle(hx));
 
 	for (uint32_t hx : REM2update)
@@ -270,6 +270,7 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 	stats.on_operation(Collapse);
 
 	/*
+	* debug测试
 	if (stats.num_total == 4968)
 	{
 		half_edge he_opp = he.opposite();
@@ -299,7 +300,7 @@ void reduction::perform_collapse(const detail::candidate_operation& c)			/// 从p
 	{
 		mesh Mesh1;
 		Mesh1.vertices = obj.vertices;
-		connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+		connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh1.triangles.push_back(t); });			
 		remove_standalone_vertices(Mesh1, connectivity);
 		Mesh1.save("delaunay_test_after_collapse" + std::to_string(stats.num_total) + ".obj");
 		
@@ -360,7 +361,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 	stats.clear();
 	stats.num_vertices = ini_num_vertices;
 
-	/// delete connectivity;							///TODO: 确认一下是否需要主动释放空间
+	/// delete connectivity;							
 	obj.vertices.resize(ini_num_vertices);
 	obj.vertices = ori_vertices;
 	connectivity = obj.half_edges();
@@ -480,7 +481,7 @@ std::pair<mesh, std::vector<size_t>> reduction::reduce_stream(Eigen::ArrayXf X)
 
 			Mesh.vertices = obj.vertices;
 			Mesh.triangles.clear();
-			connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle？
+			connectivity.on_triangles([&](const std::array<uint32_t, 3>& t) { Mesh.triangles.push_back(t); });			// 在reduce后更新了mesh的triangle
 			remove_standalone_vertices(Mesh, connectivity);
 
 			/// 临时debug加的

@@ -202,7 +202,7 @@ bool half_edge_connectivity::valid_flip_edge(uint32_t h) const
 	half_edge he = handle(h);
 	if (!he.is_valid()) return false;
 
-	// An edge must be in 2 triangles to be flipable    （即不能是边界点？
+	// An edge must be in 2 triangles to be flipable
 	if (!he.opposite().is_valid()) return false;
 
 	// It is impossible to flip an edge if the flipped edge already exists
@@ -223,7 +223,7 @@ bool half_edge_connectivity::valid_collapse_edge(uint32_t h) const
 	if (n != he.arity()) return false;
 
 	// Edge must be boundary if both vertices are boundary ("Mesh Optimization", Hoppe et al 1993)
-	//即不能出现这种情况：
+	// 即不能出现这种情况：
 	//        *
 	//      /   \
 	//     u ->- v
@@ -240,7 +240,6 @@ void half_edge_connectivity::split_edge(uint32_t he, uint32_t new_vertex)
 }
 
 /// 若he是边界
-/// 没看懂下面在干嘛
 void half_edge_connectivity::split_edge_1(uint32_t he, uint32_t new_vertex)
 {
 	const std::array<uint32_t, 3> h = triangle_half_edges(he);

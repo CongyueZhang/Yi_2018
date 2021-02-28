@@ -114,7 +114,6 @@ private:
 			});
 	}
 
-	/// 自己加的
 	/// 遍历vertex包含v的三角形的所有 *edge*
 	template<typename F>
 	void traverse_k_ring_edge(unsigned int k, uint32_t v, F f)

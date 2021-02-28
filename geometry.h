@@ -97,7 +97,7 @@ bool smallest_eigenvectors(const Eigen::SparseMatrix<double>& L, const Eigen::Ve
 void get_edge_2_ring(const half_edge_connectivity& connectivity, const std::vector<uint32_t>& half_edge_triangle, uint32_t h,
 	std::vector<uint32_t>& V, std::vector<uint32_t>& F);
 
-///自己加的--------------------------------------------------
+
 /// return the angle between two vectors (弧度
 double getAngle(const Eigen::Vector3d& v1, const Eigen::Vector3d& v2);
 std::pair<double, double> opp_angle(const mesh& obj, const half_edge_connectivity& connectivity, uint32_t h_index);

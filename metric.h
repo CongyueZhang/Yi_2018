@@ -35,7 +35,7 @@ struct reduction_metric
 		return true;
 	}
 
-	//自己改动了
+	//改动了
 	virtual double cost_collapse(uint32_t /* half_edge */, uint32_t /* to_keep */, uint32_t /* to_remove */) const
 	{
 		return 0;

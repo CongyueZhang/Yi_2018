@@ -7,7 +7,7 @@ class half_edge_connectivity;
 
 struct half_edge_data
 {
-	uint32_t next;					// next中存的好像是index
+	uint32_t next;					// next中存的是index
 	uint32_t opposite;
 	uint32_t vertex;
 
@@ -21,7 +21,7 @@ struct half_edge /// TODO: allow const AND non-const usage
 	uint32_t index;					//index都是对应的half_edges这个vector中的index
 
 	bool is_valid() const;
-	uint32_t vertex() const;		//返回的应该是这个halfedge入射点的vertex的index
+	uint32_t vertex() const;		//返回的是这个halfedge入射点的vertex的index
 	half_edge next() const;
 	half_edge opposite() const;
 	size_t arity() const;
@@ -75,7 +75,7 @@ private:
 	};
 
 public:
-	/// 从private移过来的
+	/// 最好放在private
 	std::vector<half_edge_data> half_edges;
 
 	/// Convert a list of indices to half-edge connectivity
@@ -262,7 +262,7 @@ inline std::vector<std::pair<uint32_t, uint32_t>> half_edge_connectivity::create
 	std::vector<std::pair<uint32_t, uint32_t>> vh;
 	while (begin != end)
 	{
-		const uint32_t i0 = *begin++;		//*begin 的值是triangles中存的第一个triangle的第一个顶点在vertices中的index
+		const uint32_t i0 = *begin++;				//*begin 的值是triangles中存的第一个triangle的第一个顶点在vertices中的index
 		const uint32_t i1 = *begin++;
 		const uint32_t i2 = *begin++;
 		const uint32_t h = (uint32_t)half_edges.size();

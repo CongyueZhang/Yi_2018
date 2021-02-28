@@ -255,7 +255,6 @@ void min_priority_queue<T, IndexFn, CompareFn>::push_up(size_t e)
 	}
 }
 
-/// TODO: 确保删除不存在的量时不会出现问题
 template<typename T, typename IndexFn, typename CompareFn>
 bool min_priority_queue<T, IndexFn, CompareFn>::_delete(size_t index)
 {
